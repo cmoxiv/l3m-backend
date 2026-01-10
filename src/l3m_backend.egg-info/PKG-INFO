@@ -1,3 +1,37 @@
+Metadata-Version: 2.4
+Name: l3m-backend
+Version: 0.1.0
+Summary: A lightweight tool-calling system for local LLMs using llama-cpp-python
+License: MIT
+Project-URL: Homepage, https://github.com/mo/l3m-backend
+Project-URL: Repository, https://github.com/mo/l3m-backend
+Keywords: llm,tool-calling,llama-cpp,ai,chatbot
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0
+Requires-Dist: requests>=2.25
+Provides-Extra: llm
+Requires-Dist: llama-cpp-python>=0.2.0; extra == "llm"
+Provides-Extra: repl
+Requires-Dist: prompt_toolkit>=3.0; extra == "repl"
+Provides-Extra: mcp
+Requires-Dist: mcp[cli]>=1.0; extra == "mcp"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.10; extra == "dev"
+Provides-Extra: all
+Requires-Dist: l3m-backend[dev,llm,mcp,repl]; extra == "all"
+
 # l3m-backend
 
 A lightweight tool-calling system for local LLMs using llama-cpp-python.

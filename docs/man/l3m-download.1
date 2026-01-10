@@ -1,0 +1,87 @@
+.TH L3M-DOWNLOAD 1 "January 2026" "l3m-backend" "User Commands"
+.SH NAME
+l3m-download \- download GGUF models from Hugging Face
+.SH SYNOPSIS
+.B l3m-download
+\fB--preset\fR \fIPRESET\fR [\fIOPTIONS\fR]
+.br
+.B l3m-download
+\fB--repo\fR \fIREPO\fR \fB--file\fR \fIFILE\fR [\fIOPTIONS\fR]
+.SH DESCRIPTION
+.B l3m-download
+downloads GGUF model files from Hugging Face repositories for use with
+l3m-chat. Models can be downloaded using predefined presets or by
+specifying a repository and filename directly.
+.SH OPTIONS
+.TP
+.BI \-\-preset " PRESET"
+Download a model using a predefined preset. Use \fB--list-presets\fR
+to see available presets.
+.TP
+.B \-\-list-presets
+List all available model presets and exit.
+.TP
+.BI \-\-repo " REPO"
+Hugging Face repository in the format "organization/model-name".
+.TP
+.BI \-\-file " FILE"
+Specific GGUF file to download from the repository.
+.TP
+.BI \-\-output " DIR" "\fR, " \-o " DIR"
+Output directory for downloaded models. Default: ~/.l3m/models/
+.SH PRESETS
+Available presets include various quantized versions of popular models:
+.TP
+.B llama3.2-1b
+Llama 3.2 1B Instruct (Q4_K_M quantization)
+.TP
+.B llama3.2-3b
+Llama 3.2 3B Instruct (Q4_K_M quantization)
+.TP
+.B qwen2.5-1.5b
+Qwen 2.5 1.5B Instruct (Q4_K_M quantization)
+.PP
+Use \fB--list-presets\fR for a complete list.
+.SH FILES
+.TP
+.I ~/.l3m/models/
+Default directory for downloaded model files.
+.SH EXAMPLES
+Download using a preset:
+.PP
+.RS
+.nf
+l3m-download --preset llama3.2-1b
+.fi
+.RE
+.PP
+List available presets:
+.PP
+.RS
+.nf
+l3m-download --list-presets
+.fi
+.RE
+.PP
+Download to a custom directory:
+.PP
+.RS
+.nf
+l3m-download --preset llama3.2-1b --output /path/to/models
+.fi
+.RE
+.PP
+Download from a specific repo:
+.PP
+.RS
+.nf
+l3m-download --repo bartowski/Llama-3.2-1B-Instruct-GGUF \\
+    --file Llama-3.2-1B-Instruct-Q4_K_M.gguf
+.fi
+.RE
+.SH SEE ALSO
+.BR l3m-chat (1),
+.BR l3m-tools (1),
+.BR l3m-completion (1)
+.SH AUTHORS
+l3m-backend contributors.

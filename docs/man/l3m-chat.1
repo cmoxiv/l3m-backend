@@ -1,0 +1,124 @@
+.TH L3M-CHAT 1 "January 2026" "l3m-backend" "User Commands"
+.SH NAME
+l3m-chat \- interactive chat REPL with LLM tool calling
+.SH SYNOPSIS
+.B l3m-chat
+[\fIOPTIONS\fR] [\fIMODEL\fR]
+.SH DESCRIPTION
+.B l3m-chat
+provides an interactive Read-Eval-Print Loop (REPL) for chatting with
+local LLM models. It supports automatic tool calling through a contract-based
+approach that works with any model capable of generating JSON.
+.PP
+The REPL features command history, tab completion, history search (Ctrl+R),
+and shell command execution via the ! prefix.
+.SH OPTIONS
+.TP
+.B MODEL
+Path to a GGUF model file, or filename to find in ~/.l3m/models/.
+If not specified, auto-detects a model from the default directory.
+.TP
+.BR \-\-list ", " \-l
+List available models in ~/.l3m/models/ and exit.
+.TP
+.BR \-\-ctx " " \fIN\fR
+Set context window size in tokens. Default: 32768.
+.TP
+.BR \-\-gpu " " \fIN\fR
+Number of layers to offload to GPU. Use -1 for all layers (default).
+Use 0 for CPU-only inference.
+.TP
+.BR \-v ", " \-\-verbose
+Enable verbose output from llama.cpp.
+.SH REPL COMMANDS
+.TP
+.B /clear
+Clear conversation history.
+.TP
+.B /tools
+List available tools and their descriptions.
+.TP
+.B /system
+Display the current system prompt.
+.TP
+.B /schema
+Show tool definitions in OpenAI-compatible JSON format.
+.TP
+.B /contract
+Show the full system message including tool contract.
+.TP
+.B /history
+Display conversation history with message indices.
+.TP
+.B /help
+Show available commands (feature-rich REPL only).
+.TP
+.B /quit\fR, \fB/exit\fR, \fB/q
+Exit the REPL.
+.TP
+.BI ! command
+Execute a shell command.
+.SH KEYBOARD SHORTCUTS
+.TP
+.B Tab
+Auto-complete commands and history.
+.TP
+.B Ctrl+R
+Search command history.
+.TP
+.B Ctrl+C
+Cancel current input.
+.TP
+.B Ctrl+D
+Press twice to exit.
+.TP
+.B Up/Down
+Navigate history. After typing, searches for matching prefix.
+.SH FILES
+.TP
+.I ~/.l3m/models/
+Default directory for GGUF model files.
+.TP
+.I ~/.l3m/prompt_history
+Persistent command history file.
+.TP
+.I ~/.l3m/tools/
+Directory for user-defined tools.
+.SH EXAMPLES
+Start chat with auto-detected model:
+.PP
+.RS
+.nf
+l3m-chat
+.fi
+.RE
+.PP
+Start chat with a specific model:
+.PP
+.RS
+.nf
+l3m-chat Llama-3.2-1B-Instruct-Q4_K_M.gguf
+.fi
+.RE
+.PP
+List available models:
+.PP
+.RS
+.nf
+l3m-chat --list
+.fi
+.RE
+.PP
+Start with custom context size:
+.PP
+.RS
+.nf
+l3m-chat --ctx 8192
+.fi
+.RE
+.SH SEE ALSO
+.BR l3m-tools (1),
+.BR l3m-download (1),
+.BR l3m-completion (1)
+.SH AUTHORS
+l3m-backend contributors.

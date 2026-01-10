@@ -1,0 +1,139 @@
+.TH L3M-TOOLS 1 "January 2026" "l3m-backend" "User Commands"
+.SH NAME
+l3m-tools \- manage and inspect LLM tools in the l3m registry
+.SH SYNOPSIS
+.B l3m-tools
+\fICOMMAND\fR [\fIOPTIONS\fR] [\fIARGS\fR]
+.SH DESCRIPTION
+.B l3m-tools
+provides commands for listing, inspecting, and creating tools in the
+l3m-backend tool registry. Tools are functions that can be called by
+the LLM during chat sessions.
+.SH COMMANDS
+.SS list
+List all registered tools.
+.PP
+.RS
+.B l3m-tools list
+[\fB-v\fR|\fB--verbose\fR]
+.RE
+.TP
+.BR \-v ", " \-\-verbose
+Show full descriptions instead of summaries.
+.SS schema
+Show OpenAI-compatible tool schema in JSON format.
+.PP
+.RS
+.B l3m-tools schema
+[\fITOOL_NAME\fR]
+.RE
+.PP
+Without arguments, shows schema for all tools. With a tool name,
+shows schema for that specific tool.
+.SS info
+Show detailed information about a specific tool.
+.PP
+.RS
+.B l3m-tools info
+\fITOOL_NAME\fR
+.RE
+.PP
+Displays the tool's name, aliases, description, and parameter schema.
+.SS create
+Create a new user tool from a template.
+.PP
+.RS
+.B l3m-tools create
+\fITOOL_NAME\fR [\fB--wrapper\fR] [\fB--force\fR]
+.RE
+.TP
+.B \-\-wrapper
+Generate a wrapper tool template for external commands instead of
+the basic tool template.
+.TP
+.BR \-f ", " \-\-force
+Overwrite existing tool directory if it exists.
+.PP
+Creates a new tool in ~/.l3m/tools/\fITOOL_NAME\fR/ with an
+__init__.py containing the tool implementation scaffold.
+.SH TOOL TYPES
+.SS Built-in Tools
+Tools provided by the l3m-backend package, including:
+.IP \(bu 2
+.B get_weather
+\- Get weather information for a city
+.IP \(bu 2
+.B get_time
+\- Get current date and time
+.IP \(bu 2
+.B calculate
+\- Evaluate mathematical expressions
+.IP \(bu 2
+.B wikipedia
+\- Search Wikipedia articles
+.IP \(bu 2
+.B run_python
+\- Execute Python code (development tools)
+.SS User Tools
+Custom tools created in ~/.l3m/tools/. Each tool is a directory
+containing an __init__.py that registers functions with the tool
+registry using the @registry.register decorator.
+.SH FILES
+.TP
+.I ~/.l3m/tools/
+Directory for user-defined tools. Each subdirectory should contain
+an __init__.py with tool definitions.
+.SH EXAMPLES
+List all tools:
+.PP
+.RS
+.nf
+l3m-tools list
+.fi
+.RE
+.PP
+List tools with full descriptions:
+.PP
+.RS
+.nf
+l3m-tools list -v
+.fi
+.RE
+.PP
+Show schema for all tools:
+.PP
+.RS
+.nf
+l3m-tools schema
+.fi
+.RE
+.PP
+Show info for a specific tool:
+.PP
+.RS
+.nf
+l3m-tools info get_weather
+.fi
+.RE
+.PP
+Create a new tool:
+.PP
+.RS
+.nf
+l3m-tools create my_tool
+.fi
+.RE
+.PP
+Create a wrapper tool:
+.PP
+.RS
+.nf
+l3m-tools create git_status --wrapper
+.fi
+.RE
+.SH SEE ALSO
+.BR l3m-chat (1),
+.BR l3m-download (1),
+.BR l3m-completion (1)
+.SH AUTHORS
+l3m-backend contributors.

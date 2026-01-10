@@ -1,0 +1,100 @@
+.TH L3M-COMPLETION 1 "January 2026" "l3m-backend" "User Commands"
+.SH NAME
+l3m-completion \- generate shell completion scripts for l3m commands
+.SH SYNOPSIS
+.B l3m-completion
+\fISHELL\fR
+.SH DESCRIPTION
+.B l3m-completion
+generates shell completion scripts for the l3m command-line tools.
+The generated script provides tab completion for commands, options,
+and arguments.
+.SH ARGUMENTS
+.TP
+.I SHELL
+The shell to generate completions for. Supported values:
+.RS
+.IP \(bu 2
+.B bash
+\- Bash shell
+.IP \(bu 2
+.B zsh
+\- Z shell
+.IP \(bu 2
+.B fish
+\- Fish shell
+.RE
+.SH INSTALLATION
+.SS Bash
+Add to your ~/.bashrc:
+.PP
+.RS
+.nf
+source <(l3m-completion bash)
+.fi
+.RE
+.PP
+Or save to a file:
+.PP
+.RS
+.nf
+l3m-completion bash > ~/.local/share/bash-completion/completions/l3m
+.fi
+.RE
+.SS Zsh
+Add to your ~/.zshrc:
+.PP
+.RS
+.nf
+source <(l3m-completion zsh)
+.fi
+.RE
+.PP
+Or save to your fpath:
+.PP
+.RS
+.nf
+l3m-completion zsh > ~/.zsh/completions/_l3m
+.fi
+.RE
+.SS Fish
+Save to your completions directory:
+.PP
+.RS
+.nf
+l3m-completion fish > ~/.config/fish/completions/l3m.fish
+.fi
+.RE
+.SH EXAMPLES
+Generate bash completions:
+.PP
+.RS
+.nf
+l3m-completion bash
+.fi
+.RE
+.PP
+Enable completions in current bash session:
+.PP
+.RS
+.nf
+source <(l3m-completion bash)
+.fi
+.RE
+.PP
+Generate and save zsh completions:
+.PP
+.RS
+.nf
+l3m-completion zsh > ~/.zsh/completions/_l3m
+.fi
+.RE
+.SH SEE ALSO
+.BR l3m-chat (1),
+.BR l3m-tools (1),
+.BR l3m-download (1),
+.BR bash (1),
+.BR zsh (1),
+.BR fish (1)
+.SH AUTHORS
+l3m-backend contributors.

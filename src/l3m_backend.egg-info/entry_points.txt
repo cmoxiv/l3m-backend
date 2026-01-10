@@ -1,0 +1,7 @@
+[console_scripts]
+l3m-chat = l3m_backend.cli.chat_repl:main
+l3m-completion = l3m_backend.cli.completion:main
+l3m-download = l3m_backend.scripts.download_gguf:main
+l3m-init = l3m_backend.cli.init:main
+l3m-mcp-server = l3m_backend.cli.mcp_server:main
+l3m-tools = l3m_backend.cli.tools_cli:main
