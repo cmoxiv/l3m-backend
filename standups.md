@@ -93,3 +93,18 @@ This session focused on stabilizing session persistence and expanding tool calli
 
 ### Summary
 This session focused on UX improvements and implementing a dynamic priming system for tool contracts. Key achievements include fixing streaming behavior, improving session management, isolating tools into modular folders, and creating a sophisticated priming mechanism that generates progressive examples based on available tools to teach the LLM effective tool usage patterns.
+
+## Session Wrap-up
+
+**Date:** 2026-01-12
+
+### What Got Done
+- Enhanced `web_search` tool to fetch actual page content from result URLs (not just headlines)
+- Added `_fetch_page_content()` and `_fetch_all_results()` for content extraction
+- Added `ignore_history` mode to `ChatEngine.chat()` for one-shot LLM completions without affecting conversation history
+- Integrated LLM-based summarization into `web_search` for large content (>3000 chars)
+- Changed auto-resume prompt to default to No (`[y/N]` instead of `[Y/n]`)
+- Updated user manual with directory-based session documentation
+
+### Summary
+This session focused on improving the web search tool to provide actual content rather than just titles, and adding infrastructure for tools to invoke the LLM for processing (like summarization) without polluting conversation history. The `ignore_history` mode enables tools to leverage the loaded model for internal tasks.

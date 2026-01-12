@@ -406,6 +406,17 @@ The `@tool_output` decorator controls how results are presented to the LLM:
 
 Sessions allow you to save and resume conversations.
 
+### Directory-Based Sessions
+
+When you start l3m-chat in a directory with an existing session, you'll be prompted:
+
+```
+Found existing session in this directory: a1b2c3d4
+Resume this session? [y/N]
+```
+
+Press `y` to resume, or just press Enter to start fresh. To auto-resume without prompting, set `auto_resume: true` in your config.
+
 ### Saving Sessions
 
 ```
