@@ -39,6 +39,16 @@ from l3m_backend.mcp.exceptions import (
     MCPToolError,
     MCPTransportError,
 )
+from l3m_backend.mcp.logging import (
+    close_session_logging,
+    configure_session_logging,
+    get_current_log_path,
+    get_log_path,
+    log_mcp_debug,
+    log_mcp_exception,
+    log_mcp_info,
+    log_mcp_warning,
+)
 
 __all__ = [
     # Client
@@ -59,4 +69,13 @@ __all__ = [
     "MCPServerNotFoundError",
     "MCPToolError",
     "MCPTransportError",
+    # Logging
+    "configure_session_logging",
+    "close_session_logging",
+    "get_log_path",
+    "get_current_log_path",
+    "log_mcp_exception",
+    "log_mcp_warning",
+    "log_mcp_info",
+    "log_mcp_debug",
 ]

@@ -70,3 +70,26 @@
 
 ### Summary
 This session focused on stabilizing session persistence and expanding tool calling capabilities. Major wins include fixing critical save/exit bugs, completing a multi-format tool calling module, and significantly reducing token overhead through contract optimization.
+
+## Session Wrap-up
+
+**Date:** 2026-01-12
+
+### What Got Done
+- Fixed similarity graph buffer size error (20.55 GiB allocation) by setting embedding model context to 512 tokens
+- Added configurable stop tokens to prevent chatty model output (`<|end|>`, `<|eot_id|>`, `<|im_end|>`)
+- Implemented true token-by-token streaming for final responses
+- Made `l3m-init` preserve existing config values (only adds missing keys)
+- Added history trimming on session resume with summarization when context is smaller than history
+- Fixed `/clear` command to properly clear history, transcript, and summaries from session
+- Created real DuckDuckGo web search tool (Instant Answer API + HTML lite fallback)
+- Isolated tools into separate folders: `wikipedia/`, `dictionary/`, `unit_convert/`, `currency/`, `web_search/`
+- Renamed CLI options for consistency: `--config-set`, `--config-del`, `--config-save-default`, `--config-make-default`
+- Added auto-completion script installation to `l3m-init` (`~/.l3m/completions/`)
+- Updated default system prompt with clear tool usage guidelines
+- Fixed Ctrl+C handling to show "You:" prompt immediately
+- **Implemented dynamic priming mechanism** with progressive examples (simple → multi-request → chaining with planning)
+- Created `~/.l3m/priming.yaml` for user-configurable tool usage examples
+
+### Summary
+This session focused on UX improvements and implementing a dynamic priming system for tool contracts. Key achievements include fixing streaming behavior, improving session management, isolating tools into modular folders, and creating a sophisticated priming mechanism that generates progressive examples based on available tools to teach the LLM effective tool usage patterns.

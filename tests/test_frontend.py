@@ -102,6 +102,8 @@ def chat_engine(mock_registry, mock_llm):
             n_gpu_layers=0,
             verbose=False,
         )
+    # Clear priming messages for isolated message-building tests
+    engine.priming_messages = []
     return engine
 
 
@@ -121,18 +123,15 @@ class TestToolContractTemplate:
         assert "tool_call" in TOOL_CONTRACT_TEMPLATE
         assert "plain text" in TOOL_CONTRACT_TEMPLATE
 
-    def test_template_has_examples(self):
-        """Test template includes examples."""
-        assert "EXAMPLES" in TOOL_CONTRACT_TEMPLATE
-        assert "get_time" in TOOL_CONTRACT_TEMPLATE
-        assert "get_weather" in TOOL_CONTRACT_TEMPLATE
+    def test_template_has_tool_documentation(self):
+        """Test template includes tool calling documentation."""
+        # Priming is now handled as separate mock messages, not in template
+        assert "{registry_json}" in TOOL_CONTRACT_TEMPLATE
 
     def test_template_has_tool_result_documentation(self):
         """Test template documents tool_result format and handling."""
-        # Must document the tool result format the model will receive
-        assert "TOOL RESULTS" in TOOL_CONTRACT_TEMPLATE or "Tool Result" in TOOL_CONTRACT_TEMPLATE
-        # Must show complete flow: tool_call -> [Tool Result] -> plain text
-        assert "[Tool Result]" in TOOL_CONTRACT_TEMPLATE
+        # Must document that tool results will be received
+        assert "TOOL RESULTS" in TOOL_CONTRACT_TEMPLATE or "result" in TOOL_CONTRACT_TEMPLATE
         # Must instruct to respond in plain text after receiving tool result
         assert "plain text" in TOOL_CONTRACT_TEMPLATE
 
@@ -700,10 +699,12 @@ class TestChat:
 
         chat_engine.chat("Calculate 1+1")
 
-        # Check second call includes tool result
+        # Check second call includes tool result in JSON format
         second_call_messages = calls[1]["messages"]
         tool_result_msg = second_call_messages[-1]
-        assert "[Tool Result]: Result: 2" in tool_result_msg["content"]
+        assert '"type": "tool_result"' in tool_result_msg["content"]
+        assert '"name": "calculate"' in tool_result_msg["content"]
+        assert '"content": "Result: 2"' in tool_result_msg["content"]
 
 
 # ============================================================================

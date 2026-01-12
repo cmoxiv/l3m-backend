@@ -101,11 +101,11 @@ def print_config():
         if key not in settings:
             print(f"  {key}: {value}")
 
-    print("\nSet with: l3m-chat --set-config key=value")
+    print("\nSet with: l3m-chat --config-set key=value")
     print("Available keys: default_model, ctx, gpu, verbose, simple,")
     print("                no_native_tools, no_flash_attn, incognito,")
     print("                auto_resume, temperature, system_prompt,")
-    print("                chat_format, max_tokens")
+    print("                chat_format, max_tokens, stop_tokens")
     print()
 
 
@@ -128,7 +128,7 @@ Examples:
     l3m-chat /path/to/model.gguf       # Use model by path
     l3m-chat --list                    # List available models
     l3m-chat --config                  # Show current config
-    l3m-chat --set-config ctx=8192     # Set default context size
+    l3m-chat --config-set ctx=8192     # Set default context size
         """,
     )
     default_model = cfg.get("default_model")
@@ -164,6 +164,9 @@ Examples:
     parser.add_argument("--no-flash-attn", action="store_true",
                         default=cfg.get("no_flash_attn"),
                         help=f"Disable flash attention (default: {cfg.get('no_flash_attn')})")
+    parser.add_argument("--stop-tokens", nargs="*",
+                        default=cfg.get("stop_tokens"),
+                        help="Stop tokens for generation (model-specific)")
     parser.add_argument("--system-prompt", type=str,
                         default=cfg.get("system_prompt"),
                         help="System prompt for the assistant")
@@ -181,6 +184,8 @@ Examples:
                         help="Incognito mode (session stored in /tmp)")
     parser.add_argument("--no-warmup", action="store_true",
                         help="Skip KV cache warmup when resuming sessions")
+    parser.add_argument("--embedding-model", metavar="MODEL",
+                        help="Enable embeddings/graphs with MODEL (e.g., 'nomic' or 'llm')")
     parser.add_argument("--summary-ctx", type=int, default=0,
                         help="Context tokens for session summaries (0=disabled, -1=4096, >0=fixed)")
     parser.add_argument("--transcript-ctx", type=int, default=0,
@@ -199,13 +204,17 @@ Examples:
     # Config management
     parser.add_argument("--config", action="store_true",
                         help="Show current configuration")
-    parser.add_argument("--set-config", metavar="KEY=VALUE",
+    parser.add_argument("--config-set", metavar="KEY=VALUE",
                         help=("Set a config value. Keys: default_model, ctx, gpu, "
                               "verbose, show_warnings, simple, no_native_tools, no_flash_attn, "
                               "minimal_contract, incognito, auto_resume, temperature, "
-                              "system_prompt, chat_format, max_tokens"))
-    parser.add_argument("--unset-config", metavar="KEY",
+                              "system_prompt, chat_format, max_tokens, stop_tokens"))
+    parser.add_argument("--config-del", metavar="KEY",
                         help="Unset a config value (reset to default)")
+    parser.add_argument("--config-save-default", action="store_true",
+                        help="Save current config as the default (config-default.json)")
+    parser.add_argument("--config-make-default", action="store_true",
+                        help="Recreate config-default.json from package defaults")
 
     # MCP support
     parser.add_argument("--mcp", nargs="*", metavar="SERVER",
@@ -226,10 +235,10 @@ Examples:
         print_config()
         return
 
-    # Handle --set-config
-    if args.set_config:
+    # Handle --config-set
+    if args.config_set:
         try:
-            key, value = args.set_config.split("=", 1)
+            key, value = args.config_set.split("=", 1)
             key = key.strip()
             value = value.strip()
 
@@ -249,15 +258,35 @@ Examples:
             sys.exit(1)
         return
 
-    # Handle --unset-config
-    if args.unset_config:
+    # Handle --config-del
+    if args.config_del:
         try:
-            cfg_mgr.unset(args.unset_config)
-            print(f"Unset {args.unset_config}")
+            cfg_mgr.unset(args.config_del)
+            print(f"Deleted {args.config_del}")
             print(f"Saved to {cfg_mgr.CONFIG_FILE}")
         except ValueError as e:
             print(f"Error: {e}")
             sys.exit(1)
+        return
+
+    # Handle --config-save-default
+    if args.config_save_default:
+        import shutil
+        config_default = cfg_mgr.CONFIG_FILE.parent / "config-default.json"
+        if not cfg_mgr.CONFIG_FILE.exists():
+            print("Error: No config file exists. Run 'l3m-init' first.")
+            sys.exit(1)
+        shutil.copy2(cfg_mgr.CONFIG_FILE, config_default)
+        print(f"Saved current config as default: {config_default}")
+        return
+
+    # Handle --config-make-default
+    if args.config_make_default:
+        import json
+        from l3m_backend.config.config import DEFAULTS
+        config_default = cfg_mgr.CONFIG_FILE.parent / "config-default.json"
+        config_default.write_text(json.dumps(DEFAULTS, indent=2))
+        print(f"Created default config from package defaults: {config_default}")
         return
 
     # Handle --mcp-list
@@ -412,8 +441,8 @@ Examples:
                 try:
                     # Only prompt if stdin is a tty (not in tests or pipes)
                     if sys.stdin.isatty():
-                        response = input("Resume this session? [Y/n] ").strip().lower()
-                        if response in ("", "y", "yes"):
+                        response = input("Resume this session? [y/N] ").strip().lower()
+                        if response in ("y", "yes"):
                             session_id_to_resume = existing_session
                 except (EOFError, KeyboardInterrupt, OSError):
                     print()
@@ -486,7 +515,19 @@ Examples:
         debug=args.debug,
         minimal_contract=args.minimal_contract,
         context_partition=partition,
+        stop_tokens=args.stop_tokens,
     )
+
+    # Configure embedding provider based on --embedding-model
+    # By default, embeddings are disabled to avoid interference with chat
+    if args.embedding_model:
+        engine._embeddings_enabled = True
+        if args.embedding_model.lower() == "llm":
+            engine._use_nomic_embeddings = False
+        else:
+            engine._use_nomic_embeddings = True
+    else:
+        engine._embeddings_enabled = False
 
     # Store MCP client on engine for /mcp command access
     engine._mcp_client = mcp_client
@@ -502,6 +543,25 @@ Examples:
             session_mgr.load(session_id_to_resume)
             # Restore engine history
             engine.history = session_mgr.get_engine_history()
+
+            # Check if history exceeds current context and trim if needed
+            trim_result = engine.check_and_trim_history()
+            if trim_result["trimmed"]:
+                print(f"\033[33mHistory trimmed to fit context ({trim_result['context_size']} tokens):\033[0m")
+                print(f"\033[33m  Removed {trim_result['removed_count']} messages, kept {trim_result['remaining_count']}\033[0m")
+                print(f"\033[33m  {trim_result['initial_tokens']} -> {trim_result['final_tokens']} tokens\033[0m")
+
+                # Generate summary for trimmed content (same as mid-conversation trimming)
+                last_end = session_mgr.get_last_summary_end_idx()
+                if session_mgr.session and session_mgr.session.transcript and len(session_mgr.session.transcript) > last_end:
+                    print("\033[33m  Generating summary of trimmed content...\033[0m")
+                    session_mgr.generate_summary(engine, last_end)
+
+                # Sync trimmed history back to session and save
+                session_mgr.sync_from_engine(engine.history)
+                cwd = Path(session_mgr.session.metadata.working_directory)
+                session_mgr.save(cwd)
+                print("\033[33m  Session updated.\033[0m")
 
             # Populate context partitions if enabled
             if engine.partition.has_partitions():
@@ -548,7 +608,7 @@ Examples:
 
             # Run warmup to prime KV cache (unless --no-warmup)
             if not args.no_warmup and session_mgr.session.transcript:
-                print("\033[90mWarming up KV cache...\033[0m", end="", flush=True)
+                print("\033[90mWarming up KV cache...\033[0m", flush=True)
                 # Prepare warmup data
                 transcript = [
                     {"role": msg.role, "content": msg.content}
@@ -558,8 +618,38 @@ Examples:
                     s.summary for s in session_mgr.session.metadata.summaries
                 ] if session_mgr.session.metadata.summaries else None
 
-                warmup_info = engine.warmup(transcript=transcript, summaries=summaries)
-                print(f"\r\033[90mWarmed up: {warmup_info['tokens']} tokens in {warmup_info['time_s']:.1f}s\033[0m")
+                # Progress callback for knowledge graph building
+                def kg_progress(current: int, total: int) -> None:
+                    bar_width = 20
+                    filled = int(bar_width * current / total) if total > 0 else 0
+                    bar = "=" * filled + "-" * (bar_width - filled)
+                    print(f"\r\033[90mBuilding knowledge graph [{bar}] {current}/{total}\033[0m", end="", flush=True)
+                    if current == total:
+                        print()  # Newline when complete
+
+                # Progress callback for similarity graph building
+                def sg_progress(current: int, total: int) -> None:
+                    bar_width = 20
+                    filled = int(bar_width * current / total) if total > 0 else 0
+                    bar = "=" * filled + "-" * (bar_width - filled)
+                    print(f"\r\033[90mBuilding similarity graph [{bar}] {current}/{total}\033[0m", end="", flush=True)
+                    if current == total:
+                        print()  # Newline when complete
+
+                # Only build graphs if --embedding-model is specified
+                build_graphs = args.embedding_model is not None
+
+                warmup_info = engine.warmup(
+                    transcript=transcript,
+                    summaries=summaries,
+                    build_knowledge_graph=build_graphs,
+                    build_similarity_graph=build_graphs,
+                    kg_progress_callback=kg_progress if build_graphs else None,
+                    sg_progress_callback=sg_progress if build_graphs else None,
+                )
+                kg_status = " (kg)" if warmup_info.get("kg_built") else ""
+                sg_status = " (sg)" if warmup_info.get("graph_built") else ""
+                print(f"\033[90mWarmed up: {warmup_info['tokens']} tokens in {warmup_info['time_s']:.1f}s{kg_status}{sg_status}\033[0m")
         except FileNotFoundError:
             print(f"Session not found: {session_id_to_resume}")
             print("Creating new session instead.")
@@ -587,9 +677,27 @@ Examples:
     session_mgr.save()
     session_mgr.create_symlink(cwd)
 
+    # Configure MCP logging for this session
+    mcp_log_path = None
+    if mcp_client and session_mgr.session:
+        try:
+            from l3m_backend.mcp.logging import configure_session_logging
+            session_id = session_mgr.session.metadata.id
+            mcp_log_path = configure_session_logging(session_id)
+        except Exception:
+            pass  # Logging setup is non-critical
+
     try:
         repl(engine, session_mgr)
     finally:
+        # Close MCP session logging
+        if mcp_log_path:
+            try:
+                from l3m_backend.mcp.logging import close_session_logging
+                close_session_logging()
+            except Exception:
+                pass
+
         # Cleanup MCP connections
         if mcp_client:
             try:

@@ -5,9 +5,7 @@ Weather tool - fetches real-time weather data from Open-Meteo API.
 import json
 import urllib.parse
 import urllib.request
-from typing import Any, Literal
-
-from pydantic import Field
+from typing import Any
 
 from l3m_backend.core import tool_output
 from l3m_backend.tools._registry import registry
@@ -66,11 +64,8 @@ def _get_weather_code_description(code: int) -> str:
 
 
 @registry.register(aliases=["weather", "w"])
-@tool_output(llm_format="{location}: {temperature}°{unit}, {condition}")
-def get_weather(
-    location: str = Field(description="City name"),
-    unit: Literal["celsius", "fahrenheit"] = "celsius",
-) -> dict[str, Any]:
+@tool_output(llm_format="{location}: {temperature}°C, {condition}")
+def get_weather(location: str) -> dict[str, Any]:
     """Get the current weather for a location.
 
     Fetches real-time weather data from the Open-Meteo API (free, no API key required).
@@ -78,13 +73,11 @@ def get_weather(
 
     Args:
         location: Name of the city (e.g., "Tokyo", "New York", "Paris").
-        unit: Temperature unit - "celsius" or "fahrenheit". Defaults to "celsius".
 
     Returns:
         Dictionary with keys:
             - location: Canonical city name from geocoding
-            - temperature: Current temperature (rounded to nearest integer)
-            - unit: The unit used ("celsius" or "fahrenheit")
+            - temperature: Current temperature in Celsius (rounded to nearest integer)
             - condition: Weather condition description (e.g., "clear sky", "moderate rain")
 
         On error, returns the same structure with "unknown" temperature and error in condition.
@@ -94,7 +87,6 @@ def get_weather(
         {
             "location": "Paris",
             "temperature": 15,
-            "unit": "celsius",
             "condition": "partly cloudy"
         }
     """
@@ -102,12 +94,11 @@ def get_weather(
         lat, lon, name = _geocode(location)
 
         # Get current weather from Open-Meteo
-        temp_unit = "fahrenheit" if unit == "fahrenheit" else "celsius"
         url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={lat}&longitude={lon}"
             f"&current=temperature_2m,weather_code"
-            f"&temperature_unit={temp_unit}"
+            f"&temperature_unit=celsius"
         )
         with urllib.request.urlopen(url, timeout=10) as resp:
             data = json.loads(resp.read())
@@ -116,13 +107,11 @@ def get_weather(
         return {
             "location": name,
             "temperature": round(current["temperature_2m"]),
-            "unit": unit,
             "condition": _get_weather_code_description(current["weather_code"]),
         }
     except Exception as e:
         return {
             "location": location,
             "temperature": "unknown",
-            "unit": unit,
             "condition": f"error: {e}",
         }

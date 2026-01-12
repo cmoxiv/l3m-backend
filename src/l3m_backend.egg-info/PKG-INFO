@@ -19,12 +19,15 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: pydantic>=2.0
 Requires-Dist: requests>=2.25
+Requires-Dist: numpy>=1.20
 Provides-Extra: llm
 Requires-Dist: llama-cpp-python>=0.2.0; extra == "llm"
 Provides-Extra: repl
 Requires-Dist: prompt_toolkit>=3.0; extra == "repl"
 Provides-Extra: mcp
 Requires-Dist: mcp[cli]>=1.0; extra == "mcp"
+Provides-Extra: embeddings
+Requires-Dist: sentence-transformers>=2.2.0; extra == "embeddings"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0; extra == "dev"

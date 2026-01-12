@@ -14,6 +14,7 @@ from l3m_backend.mcp.exceptions import (
     MCPServerNotFoundError,
     MCPToolError,
 )
+from l3m_backend.mcp.logging import log_mcp_exception
 
 if TYPE_CHECKING:
     from mcp import ClientSession
@@ -326,13 +327,9 @@ class MCPClient:
         except Exception as e:
             # Clean up on failure
             self._runners.pop(name, None)
-            # Extract actual error from TaskGroup exceptions
-            error_msg = str(e)
-            if hasattr(e, 'exceptions'):
-                # ExceptionGroup/TaskGroup - get first sub-exception
-                sub_errors = [str(ex) for ex in e.exceptions]
-                error_msg = "; ".join(sub_errors)
-            raise MCPConnectionError(f"Failed to connect to {name}: {error_msg}")
+            # Log full traceback, raise clean error
+            user_msg = log_mcp_exception(e, context=f"Failed to connect to {name}")
+            raise MCPConnectionError(user_msg) from None
 
     async def disconnect(self, server_name: str) -> bool:
         """Disconnect from an MCP server.
@@ -429,7 +426,11 @@ class MCPClient:
             result = await conn.session.call_tool(tool_name, arguments)
             return result
         except Exception as e:
-            raise MCPToolError(f"Error calling {tool_name} on {server_name}: {e}")
+            # Log full traceback, raise clean error
+            user_msg = log_mcp_exception(
+                e, context=f"Error calling {tool_name} on {server_name}"
+            )
+            raise MCPToolError(user_msg) from None
 
     async def connect_auto_servers(self) -> list[str]:
         """Connect to all servers marked for auto-connect.

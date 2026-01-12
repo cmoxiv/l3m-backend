@@ -645,7 +645,7 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
             spinner.start()
             first_token = True
             try:
-                for token in engine.chat_stream(user_input):
+                for token in engine.chat(user_input, stream=True):
                     if first_token:
                         spinner.stop()
                         first_token = False

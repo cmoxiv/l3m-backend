@@ -118,7 +118,7 @@ def run_test(engine, test: TestCase) -> TestResult:
     try:
         # Collect response (using streaming internally)
         response = ""
-        for chunk in engine.chat_stream(test.prompt):
+        for chunk in engine.chat(test.prompt, stream=True):
             response += chunk
 
         # Check history for tool calls

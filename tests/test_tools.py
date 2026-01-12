@@ -29,8 +29,8 @@ from l3m_backend.core import ToolOutput, ToolRegistry
 class TestWeatherTool:
     """Tests for get_weather() function."""
 
-    def test_get_weather_celsius_success(self):
-        """Test get_weather with valid city and celsius (default)."""
+    def test_get_weather_success(self):
+        """Test get_weather with valid city."""
         # Arrange
         mock_geocode_response = json.dumps({
             "results": [{
@@ -62,45 +62,8 @@ class TestWeatherTool:
         assert isinstance(result, ToolOutput)
         assert result.data["location"] == "Paris"
         assert result.data["temperature"] == 23  # rounded
-        assert result.data["unit"] == "celsius"
         assert result.data["condition"] == "mainly clear"
-        assert result.llm_format == "Paris: 23°celsius, mainly clear"
-
-    def test_get_weather_fahrenheit_success(self):
-        """Test get_weather with fahrenheit unit."""
-        # Arrange
-        mock_geocode_response = json.dumps({
-            "results": [{
-                "latitude": 40.7128,
-                "longitude": -74.0060,
-                "name": "New York"
-            }]
-        }).encode()
-
-        mock_weather_response = json.dumps({
-            "current": {
-                "temperature_2m": 72.0,
-                "weather_code": 0
-            }
-        }).encode()
-
-        # Act
-        with patch('urllib.request.urlopen') as mock_urlopen:
-            mock_context_manager = MagicMock()
-            mock_context_manager.__enter__.return_value.read.side_effect = [
-                mock_geocode_response,
-                mock_weather_response
-            ]
-            mock_urlopen.return_value = mock_context_manager
-
-            result = get_weather("New York", unit="fahrenheit")
-
-        # Assert
-        assert result.data["location"] == "New York"
-        assert result.data["temperature"] == 72
-        assert result.data["unit"] == "fahrenheit"
-        assert result.data["condition"] == "clear sky"
-        assert result.llm_format == "New York: 72°fahrenheit, clear sky"
+        assert result.llm_format == "Paris: 23°C, mainly clear"
 
     def test_get_weather_city_not_found(self):
         """Test get_weather with non-existent city."""
@@ -463,8 +426,8 @@ class TestToolOutputWrapper:
 
             result = get_weather("Paris")
 
-        # Assert - format string "{location}: {temperature}°{unit}, {condition}"
-        expected = "Paris: 20°celsius, clear sky"
+        # Assert - format string "{city}: {temperature}°C, {condition}"
+        expected = "Paris: 20°C, clear sky"
         assert result.llm_format == expected
 
     def test_tool_output_lambda_format(self):
@@ -1239,16 +1202,17 @@ class TestJsonFormatTool:
 class TestWebSearchTool:
     """Tests for web_search() function."""
 
-    def test_web_search_mock_result(self):
-        """Test web_search returns mock result without API key."""
-        # Ensure no API key is set
-        with patch.dict(os.environ, {}, clear=True):
-            from l3m_backend.tools import web_search
-            result = web_search("python programming")
+    def test_web_search_real_result(self):
+        """Test web_search returns results from DuckDuckGo."""
+        from l3m_backend.tools import web_search
+        result = web_search("python programming")
 
-        assert "results" in result.data
-        assert len(result.data["results"]) > 0
-        assert "info" in result.data  # Should mention API key needed
+        # Can return either instant answer or search results
+        assert "type" in result.data or "results" in result.data
+        if result.data.get("type") == "instant_answer":
+            assert "answer" in result.data
+        elif "results" in result.data:
+            assert len(result.data["results"]) > 0
 
     def test_web_search_registered(self):
         """Test web_search is registered with aliases."""

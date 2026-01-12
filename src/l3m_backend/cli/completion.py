@@ -27,7 +27,7 @@ _l3m_chat_completions() {
 
     local models_dir="$HOME/.l3m/models"
     local sessions_dir="$HOME/.l3m/sessions"
-    local opts="--list -l --ctx --gpu --verbose -v --simple --session -s --resume -r --incognito --list-sessions --search-sessions --config --set-config --unset-config --help --no-warmup --summary-ctx --transcript-ctx"
+    local opts="--list -l --ctx --gpu --verbose -v --simple --session -s --resume -r --incognito --list-sessions --search-sessions --config --config-set --config-del --config-save-default --config-make-default --help --no-warmup --summary-ctx --transcript-ctx"
     local config_keys="default_model ctx gpu verbose simple incognito auto_resume system_prompt temperature max_tokens"
 
     # Handle option arguments
@@ -45,7 +45,7 @@ _l3m_chat_completions() {
             fi
             return 0
             ;;
-        --set-config)
+        --config-set)
             # Config key= completion
             local keyvals=""
             for key in $config_keys; do
@@ -54,7 +54,7 @@ _l3m_chat_completions() {
             COMPREPLY=($(compgen -W "$keyvals" -- "$cur"))
             return 0
             ;;
-        --unset-config)
+        --config-del)
             COMPREPLY=($(compgen -W "$config_keys" -- "$cur"))
             return 0
             ;;
@@ -87,7 +87,7 @@ _l3m_init_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
 
     if [[ "$cur" == -* ]]; then
-        COMPREPLY=($(compgen -W "--force -f --quiet -q --help" -- "$cur"))
+        COMPREPLY=($(compgen -W "--force -f --config-save-default --config-make-default --quiet -q --help" -- "$cur"))
     fi
 }
 
@@ -191,8 +191,10 @@ _l3m_chat() {
         '--list-sessions[List sessions]' \\
         '--search-sessions[Search sessions]:query:' \\
         '--config[Show config]' \\
-        '--set-config[Set config]:key=value:->setconfig' \\
-        '--unset-config[Unset config]:key:->unsetconfig' \\
+        '--config-set[Set config]:key=value:->setconfig' \\
+        '--config-del[Unset config]:key:->unsetconfig' \\
+        '--config-save-default[Save current config as default]' \\
+        '--config-make-default[Create default from package defaults]' \\
         '--help[Show help]'
 
     case $state in
@@ -220,6 +222,8 @@ _l3m_init() {
     _arguments \\
         '--force[Overwrite existing config]' \\
         '-f[Overwrite existing config]' \\
+        '--config-save-default[Save current config as default]' \\
+        '--config-make-default[Create default from package defaults]' \\
         '--quiet[Suppress output]' \\
         '-q[Suppress output]' \\
         '--help[Show help]'

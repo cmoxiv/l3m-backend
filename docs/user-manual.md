@@ -135,10 +135,12 @@ Assistant: A 15% tip on $47.50 would be $7.13, for a total of $54.63.
 Initialize l3m-backend configuration and directories.
 
 ```bash
-l3m-init              # Initialize with defaults
-l3m-init --force      # Overwrite existing config
+l3m-init              # Initialize (adds missing config keys, preserves existing)
+l3m-init --force      # Overwrite existing config completely
 l3m-init --quiet      # Suppress output
 ```
+
+**Note:** Running `l3m-init` on an existing installation only adds new configuration keys while preserving your existing settings. Use `--force` to reset everything to defaults.
 
 ### l3m-chat
 
@@ -211,7 +213,7 @@ Pure commands that don't modify conversation history:
 
 | Command | Description |
 |---------|-------------|
-| `/clear` | Clear conversation history |
+| `/clear` | Clear conversation, transcript, and summaries |
 | `/tools` | List available tools |
 | `/system` | Show system prompt |
 | `/schema` | Show tool schema (OpenAI format) |
@@ -435,6 +437,22 @@ Sessions allow you to save and resume conversations.
 /session
 ```
 
+### Resuming with Smaller Context
+
+When resuming a session with a smaller context size than when it was saved, l3m-chat will:
+1. Automatically trim older messages to fit the new context
+2. Generate a summary of the trimmed content
+3. Save the updated session
+
+You'll see a notification like:
+```
+History trimmed to fit context (8192 tokens):
+  Removed 15 messages, kept 8
+  3500 -> 1800 tokens
+  Generating summary of trimmed content...
+  Session updated.
+```
+
 ### Tagging Sessions
 
 ```
@@ -457,11 +475,28 @@ Located at `~/.l3m/config.json`:
 ```json
 {
     "default_model": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-    "context_size": 32768,
-    "gpu_layers": -1,
-    "verbose": false
+    "ctx": 8192,
+    "gpu": -1,
+    "verbose": false,
+    "temperature": 0.1,
+    "stop_tokens": ["<|end|>", "<|eot_id|>", "<|im_end|>"],
+    "system_prompt": "You are a helpful assistant with access to tools."
 }
 ```
+
+### Configuration Options
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `default_model` | string | null | Default model file to use |
+| `ctx` | int | 8192 | Context size in tokens |
+| `gpu` | int | -1 | GPU layers (-1 = all) |
+| `temperature` | float | 0.1 | Generation temperature |
+| `stop_tokens` | list | [...] | Stop tokens for generation |
+| `system_prompt` | string | "..." | Default system prompt |
+| `verbose` | bool | false | Verbose output |
+| `incognito` | bool | false | Don't save sessions |
+| `auto_resume` | bool | false | Auto-resume last session in CWD |
 
 ### Viewing Configuration
 
@@ -523,13 +558,18 @@ engine = ChatEngine(
     system_prompt="You are a helpful assistant.",
     n_ctx=32768,        # Context size
     n_gpu_layers=-1,    # GPU layers (-1 = all)
-    verbose=False
+    verbose=False,
+    stop_tokens=["<|end|>", "<|eot_id|>"]  # Stop generation tokens
 )
 
-# Chat
+# Chat (blocking)
 response = engine.chat("Hello!", max_tool_rounds=5)
 
-# Clear history
+# Chat with streaming (yields tokens as they're generated)
+for token in engine.chat("Hello!", stream=True):
+    print(token, end="", flush=True)
+
+# Clear history (also clears partition context)
 engine.clear()
 
 # Access messages

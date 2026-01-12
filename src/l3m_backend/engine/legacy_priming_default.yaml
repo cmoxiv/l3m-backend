@@ -1,0 +1,90 @@
+# Priming examples for tool contracts
+# Progressive complexity: simple -> multi-request -> chaining
+#
+# This file is installed to ~/.l3m/priming.yaml by l3m-init
+# Edit your copy to customize examples for your use case
+
+examples:
+  # Level 1: Simple single-tool call
+  - level: simple
+    user: "What's the weather in Tokyo?"
+    steps:
+      - tool: get_weather
+        args: {location: "Tokyo"}
+        result: "Tokyo: 22°C, partly cloudy"
+    response: "It's 22°C and partly cloudy in Tokyo."
+
+  # Level 2: Multi-request (two tools in one query)
+  - level: multi
+    user: "What's the weather and time in London?"
+    steps:
+      - tool: get_weather
+        args: {location: "London"}
+        result: "London: 15°C, overcast"
+      - tool: get_time
+        args: {}
+        result: "2026-01-11 20:30:00"
+    response: "In London it's currently 8:30 PM with overcast skies and 15°C."
+
+  # Level 3: Chaining with planning (requires reasoning about steps)
+  - level: chaining
+    user: "Look up Python on Wikipedia and save a summary note"
+    planning: "I need to first get the Wikipedia info, then save it to a note."
+    steps:
+      - tool: wikipedia
+        args: {query: "Python programming language"}
+        result: "Python is a high-level, general-purpose programming language emphasizing code readability."
+      - tool: note
+        args: {action: "save", name: "python-info", content: "Python is a high-level, general-purpose programming language emphasizing code readability."}
+        result: "Note 'python-info' saved"
+    response: "I found info about Python and saved it to a note called 'python-info'."
+
+  # Alternative simple examples (for variety based on available tools)
+  - level: simple
+    user: "What time is it?"
+    steps:
+      - tool: get_time
+        args: {}
+        result: "2026-01-11 14:30:00"
+    response: "It's 2:30 PM."
+
+  - level: simple
+    user: "What is 15% of 85?"
+    steps:
+      - tool: calculate
+        args: {expression: "85 * 0.15"}
+        result: "12.75"
+    response: "15% of 85 is 12.75."
+
+  - level: simple
+    user: "What does ephemeral mean?"
+    steps:
+      - tool: define_word
+        args: {word: "ephemeral"}
+        result: "ephemeral (adjective): lasting for a very short time"
+    response: "'Ephemeral' means lasting for a very short time."
+
+  # Alternative multi examples
+  - level: multi
+    user: "Convert 100 USD to EUR and tell me the time"
+    steps:
+      - tool: currency_convert
+        args: {amount: 100, from_currency: "USD", to_currency: "EUR"}
+        result: "100 USD = 92.50 EUR"
+      - tool: get_time
+        args: {}
+        result: "2026-01-11 15:45:00"
+    response: "100 USD is about 92.50 EUR, and it's currently 3:45 PM."
+
+  # Alternative chaining examples
+  - level: chaining
+    user: "Calculate my monthly savings if I save $500/week and add it to my notes"
+    planning: "I need to calculate weekly to monthly, then save the result."
+    steps:
+      - tool: calculate
+        args: {expression: "500 * 4"}
+        result: "2000"
+      - tool: note
+        args: {action: "save", name: "savings", content: "Monthly savings: $2000 (based on $500/week)"}
+        result: "Note 'savings' saved"
+    response: "Saving $500/week means $2,000/month. I've saved this to your notes."

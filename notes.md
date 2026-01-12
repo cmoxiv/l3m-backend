@@ -82,7 +82,7 @@ Add RAG (Retrieval-Augmented Generation) support:
 
 ---
 
-## Note 7
+## Note 7 — DONE
 
 **Raw:**
 > when doing kv-caching warmup, build a graph network with similarities between
@@ -97,6 +97,11 @@ During KV-cache warmup, build a similarity graph network:
 3. **Summary ↔ Summary** — Compute similarity between every summary pair
 
 This graph can be used for context-aware retrieval, deduplication, or relevance ranking during session loading.
+
+**Implementation:**
+- `src/l3m_backend/engine/similarity.py` — SimilarityGraph, LlamaEmbeddingProvider
+- `engine.warmup(build_similarity_graph=True)` to build during warmup
+- APIs: `get_similar_messages()`, `get_relevant_context()`, `find_duplicates()`, `rank_messages_by_relevance()`
 
 ---
 
@@ -173,7 +178,7 @@ Move prompt history storage to `~/.l3m/prompt_history`:
 
 ---
 
-## Note 13
+## Note 13 — DONE
 
 **Raw:**
 > Handle mcp exceptions in l3m-chat and dump them into a ~/.l3m/logs/<session-filename>.log file.
@@ -187,7 +192,7 @@ Add MCP exception logging to l3m-chat:
 
 ---
 
-## Note 14
+## Note 14 — DONE
 
 **Raw:**
 > Add --summary-ctx and --transcript-ctx to the config file.
@@ -241,5 +246,49 @@ Add `#` prefix for MCP prompt template expansion:
 - When invoked, the MCP server returns an expanded/revised prompt
 - The expanded prompt is then used as the user's input to the model
 - Similar to `@` for resources, `#` is for prompts
+
+---
+
+## Note 18
+
+**Raw:**
+> Add remote MCP error handling to the todo list.
+
+**Revised:**
+Improve remote MCP error handling throughout the stack:
+- Retry logic with exponential backoff for transient failures (DONE in transport.py)
+- Wrap low-level errors (httpx, connection) in MCPTransportError (DONE)
+- Log full tracebacks to `~/.l3m/logs/` for debugging (DONE - see Note 13)
+- Graceful degradation when MCP servers are unavailable
+- User-friendly error messages in the REPL (no raw tracebacks)
+- Handle server disconnects during tool execution with clear feedback
+
+---
+
+## Note 19
+
+**Raw:**
+> Use similarity graph to trim history when needed. Work from inside-out (e.g. choose the middle history entry, compare it to entries before it and after it, if it has high similarity trim it). What other policies can we adopt when trimming the context.
+
+**Revised:**
+**Context Trimming via Similarity Graph**
+
+Use the similarity graph to intelligently trim conversation history when context limits are reached.
+
+**Inside-Out Policy (proposed):**
+- Start from the middle of history
+- Compare each entry to its neighbors (before/after)
+- If high similarity to neighbors, trim it (redundant information)
+- Preserves beginning (context setup) and end (recent exchanges)
+
+**Other potential trimming policies:**
+- **Recency-weighted:** Preserve recent messages, aggressively trim old ones
+- **Role-based:** Keep all user messages, trim verbose assistant responses
+- **Semantic clustering:** Keep one representative from each topic cluster
+- **Importance scoring:** Preserve messages with tool calls, code, or key decisions
+- **Sliding window + anchors:** Keep first N + last M, trim middle intelligently
+- **Summary replacement:** Replace trimmed sections with generated summaries
+- **Low-information removal:** Trim "okay", "thanks", acknowledgments first
+- **Duplicate elimination:** Remove near-duplicate messages (similarity > 0.9)
 
 ---

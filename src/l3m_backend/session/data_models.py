@@ -73,6 +73,7 @@ class SessionMetadata(BaseModel):
     n_ctx: int = 32768
     is_incognito: bool = False
     summaries: list[SessionSummary] = Field(default_factory=list)
+    knowledge_graph: Optional[dict[str, Any]] = None  # Serialized KnowledgeGraph
 
     def touch(self) -> None:
         """Update the updated_at timestamp."""

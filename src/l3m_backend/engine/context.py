@@ -1,17 +1,55 @@
 """
-Context partitioning for session loading.
+Context management for chat engine.
 
-Allows splitting the context window into dedicated sections for:
-- System prompt + tools contract
-- Previous session summaries
-- Transcript excerpts
-- Live conversation
+Provides:
+- Context partitioning for session loading (splitting context window)
+- Engine context for tool execution (allowing tools to access the engine)
 """
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from l3m_backend.engine.chat import ChatEngine
+
+# Context variable to hold the current engine during tool execution
+_current_engine: ContextVar["ChatEngine | None"] = ContextVar("current_engine", default=None)
+
+
+def get_current_engine() -> "ChatEngine | None":
+    """Get the current ChatEngine from execution context.
+
+    Returns the ChatEngine instance that is currently executing a tool,
+    or None if called outside of tool execution context.
+
+    Returns:
+        The current ChatEngine instance, or None.
+    """
+    return _current_engine.get()
+
+
+def set_current_engine(engine: "ChatEngine | None") -> Any:
+    """Set the current ChatEngine in execution context.
+
+    Args:
+        engine: The ChatEngine to set as current.
+
+    Returns:
+        Token that can be used to reset the context.
+    """
+    return _current_engine.set(engine)
+
+
+def reset_current_engine(token: Any) -> None:
+    """Reset the engine context to its previous value.
+
+    Args:
+        token: Token returned from set_current_engine.
+    """
+    _current_engine.reset(token)
 
 
 @dataclass

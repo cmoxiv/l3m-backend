@@ -624,6 +624,7 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
         """Handle Ctrl+C - cancel current input."""
         event.app.current_buffer.reset()
         print()
+        print("You: ", end="", flush=True)
 
     @bindings.add(" ")
     def handle_space_for_prompt_expansion(event):
@@ -758,9 +759,9 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
                 print("\n[Exit cancelled]\n")
                 continue  # Go back to show "You: " prompt
         except KeyboardInterrupt:
-            # Ctrl+C during prompt - just continue
-            print()
-            continue
+            # Ctrl+C during prompt - show fresh prompt
+            print()  # Move to new line after ^C
+            continue  # Loop will show "You: " prompt
 
         if not user_input:
             continue
@@ -886,7 +887,16 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
                 break
             elif cmd == "/clear":
                 engine.clear()
-                print("Conversation cleared.\n")
+                # Also clear session history, transcript, and summaries
+                if session_mgr and session_mgr.session:
+                    session_mgr.session.history = []
+                    session_mgr.session.transcript = []
+                    session_mgr.session.metadata.summaries = []
+                    cwd = Path(session_mgr.session.metadata.working_directory)
+                    session_mgr.save(cwd)
+                    print("Conversation, transcript, and summaries cleared.\n")
+                else:
+                    print("Conversation cleared.\n")
                 continue
             elif cmd == "/tools":
                 print_tools(engine.registry)
@@ -1211,21 +1221,50 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
             # Stream response token-by-token
             print("\nAssistant: ", end="", flush=True)
             response = ""
-            spinner = WaitingAnimation()
-            spinner.start()
+            # Don't show spinner in debug mode - it interferes with debug output
+            use_spinner = not getattr(engine, 'debug', False)
+            spinner = WaitingAnimation() if use_spinner else None
+            if spinner:
+                spinner.start()
             first_token = True
+            suggested_tool = None
             try:
-                for token in engine.chat_stream(user_input):
+                for token in engine.chat(user_input, stream=True):
+                    # Check for tool suggestion (dict marker from weaker models)
+                    if isinstance(token, dict) and token.get("type") == "tool_suggestion":
+                        suggested_tool = token.get("tool")
+                        continue
+
                     if first_token:
-                        spinner.stop()
+                        # Stop animation on first token (empty string sentinel)
+                        if spinner:
+                            spinner.stop()
                         first_token = False
+                        # Skip empty sentinel token
+                        if not token:
+                            continue
                     # Decode HTML entities (e.g., &#34; -> ")
                     decoded = html.unescape(token)
                     print(decoded, end="", flush=True)
                     response += decoded
             finally:
-                spinner.stop()
+                if spinner:
+                    spinner.stop()
             print("\n")
+
+            # Handle suggested tool call (from weaker models that mix text + JSON)
+            if suggested_tool:
+                tool_name = suggested_tool.get("name", "unknown")
+                tool_args = suggested_tool.get("arguments", {})
+                print(f"{GREY}[Detected tool: {tool_name}({tool_args})]{RESET}")
+                try:
+                    confirm = input(f"{GREY}Execute this tool? [y/N]: {RESET}").strip().lower()
+                    if confirm == "y":
+                        feedback(f"Executing {tool_name}...")
+                        result = engine.execute_suggested_tool(suggested_tool)
+                        print(f"{GREY}[Result: {result}]{RESET}\n")
+                except (EOFError, KeyboardInterrupt):
+                    print()  # Clean line after interrupt
 
             # Check if history was trimmed - generate summary if so
             if session_mgr and engine.history_trimmed:
@@ -1266,6 +1305,6 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
                 elif msg_count % 2 == 0:
                     session_mgr.save(cwd)
         except KeyboardInterrupt:
-            print("\n[Interrupted]\n")
+            print("\n[Interrupted]")
         except Exception as e:
-            print(f"\nError: {e}\n")
+            print(f"\nError: {e}")

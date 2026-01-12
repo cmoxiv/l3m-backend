@@ -26,7 +26,10 @@ DEFAULTS = {
     "incognito": False,
     "auto_resume": False,
     "temperature": 0.1,
-    "system_prompt": "You are a helpful assistant with access to tools.",
+    "system_prompt": "You are a helpful assistant with access to tools. Answer concisely and follow instructions efficiently.\n\nWhen you need information:\n1. Use available tools to find answers\n2. If a tool needs arguments you don't have, ask the user\n3. If a tool fails, inform the user and ask for clarification\n4. For questions beyond your knowledge cutoff, suggest enabling the web_search tool",
+    "summary_ctx": 0,
+    "transcript_ctx": 0,
+    "stop_tokens": ["<|end|>", "<|eot_id|>", "<|im_end|>"],
 }
 
 
@@ -87,6 +90,14 @@ class Config(BaseModel):
         default=None,
         description="Automatically resume session from CWD without prompting"
     )
+    summary_ctx: Optional[int] = Field(
+        default=None,
+        description="Summary context size (0=disabled, >0=size, -1=add to system default)"
+    )
+    transcript_ctx: Optional[int] = Field(
+        default=None,
+        description="Transcript context size (0=disabled, >0=size, -1=add to system default)"
+    )
 
     # Chat settings
     system_prompt: Optional[str] = Field(
@@ -104,6 +115,10 @@ class Config(BaseModel):
     max_tokens: Optional[int] = Field(
         default=None,
         description="Default max tokens for generation"
+    )
+    stop_tokens: Optional[list[str]] = Field(
+        default=None,
+        description="Stop tokens to end generation (model-specific)"
     )
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -175,12 +190,67 @@ class ConfigManager:
             "minimal_contract": DEFAULTS["minimal_contract"],
             "incognito": DEFAULTS["incognito"],
             "auto_resume": DEFAULTS["auto_resume"],
+            "summary_ctx": DEFAULTS["summary_ctx"],
+            "transcript_ctx": DEFAULTS["transcript_ctx"],
             "temperature": DEFAULTS["temperature"],
             "system_prompt": DEFAULTS["system_prompt"],
             "chat_format": None,
             "max_tokens": None,
+            "stop_tokens": DEFAULTS["stop_tokens"],
         }
         self.CONFIG_FILE.write_text(json.dumps(default_config, indent=2) + "\n")
+
+    def ensure_config_complete(self) -> list[str]:
+        """Ensure config file has all keys, adding missing ones with defaults.
+
+        Returns:
+            List of keys that were added.
+        """
+        self._ensure_dir()
+
+        # Default config with all keys
+        default_config = {
+            "_comment": "l3m-backend configuration file",
+            "default_model": None,
+            "ctx": DEFAULTS["ctx"],
+            "gpu": DEFAULTS["gpu"],
+            "verbose": DEFAULTS["verbose"],
+            "show_warnings": DEFAULTS["show_warnings"],
+            "simple": DEFAULTS["simple"],
+            "no_native_tools": DEFAULTS["no_native_tools"],
+            "no_flash_attn": DEFAULTS["no_flash_attn"],
+            "minimal_contract": DEFAULTS["minimal_contract"],
+            "incognito": DEFAULTS["incognito"],
+            "auto_resume": DEFAULTS["auto_resume"],
+            "summary_ctx": DEFAULTS["summary_ctx"],
+            "transcript_ctx": DEFAULTS["transcript_ctx"],
+            "temperature": DEFAULTS["temperature"],
+            "system_prompt": DEFAULTS["system_prompt"],
+            "chat_format": None,
+            "max_tokens": None,
+            "stop_tokens": DEFAULTS["stop_tokens"],
+        }
+
+        # Load existing config if present
+        existing_data = {}
+        if self.CONFIG_FILE.exists():
+            try:
+                existing_data = json.loads(self.CONFIG_FILE.read_text())
+            except json.JSONDecodeError:
+                pass  # Will be replaced with defaults
+
+        # Find missing keys and add them
+        added_keys = []
+        for key, value in default_config.items():
+            if key not in existing_data:
+                existing_data[key] = value
+                if key != "_comment":  # Don't report comment as added
+                    added_keys.append(key)
+
+        # Write updated config
+        self.CONFIG_FILE.write_text(json.dumps(existing_data, indent=2) + "\n")
+
+        return added_keys
 
     def save(self, config: Optional[Config] = None) -> Path:
         """Save configuration to file, preserving existing structure.

@@ -23,9 +23,17 @@
 
 `l3m-chat --gpu {{-1}}`
 
+- Start chat with custom stop tokens:
+
+`l3m-chat --stop-tokens "<|end|>" "<|eot_id|>"`
+
 - Start chat in verbose mode:
 
 `l3m-chat -v`
+
+- Resume a session (auto-trims history if context is smaller):
+
+`l3m-chat --resume`
 
 - Slash commands (pure, don't modify history):
 
@@ -42,3 +50,8 @@
 - Magic commands (adds input/output to conversation history):
 
 `%!{{cmd}}, %tool {{name}}, %load {{file}}, %time, %save {{file}}, %edit-response`
+
+- Features:
+  - True streaming: responses stream token-by-token as generated
+  - `/clear`: clears conversation, transcript, and summaries
+  - Session resume: auto-trims and summarizes if history exceeds context

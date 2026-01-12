@@ -16,13 +16,11 @@ from l3m_backend.tools.development import (
     shell_cmd,
     write_file,
 )
-from l3m_backend.tools.information import (
-    currency_convert,
-    define_word,
-    unit_convert,
-    web_search,
-    wikipedia,
-)
+from l3m_backend.tools.currency import currency_convert
+from l3m_backend.tools.dictionary import define_word
+from l3m_backend.tools.unit_convert import unit_convert
+from l3m_backend.tools.web_search import web_search
+# from l3m_backend.tools.wikipedia import wikipedia  # Disabled - conflicts with web_search
 from l3m_backend.tools.productivity import note, reminder, timer, todo
 from l3m_backend.tools.time import get_time
 from l3m_backend.tools.utilities import (
@@ -33,6 +31,7 @@ from l3m_backend.tools.utilities import (
     uuid_generate,
 )
 from l3m_backend.tools.weather import get_weather
+from l3m_backend.tools.planning import plan
 
 # Load user tools from ~/.l3m/tools/ after built-in tools
 from l3m_backend.tools.loader import USER_TOOLS_DIR, load_user_tools
@@ -52,7 +51,6 @@ __all__ = [
     # Calculator
     "calculate",
     # Information
-    "wikipedia",
     "define_word",
     "unit_convert",
     "currency_convert",
@@ -74,4 +72,6 @@ __all__ = [
     "hash_text",
     "base64_encode",
     "json_format",
+    # Planning
+    "plan",
 ]

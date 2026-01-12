@@ -1,5 +1,6 @@
 pydantic>=2.0
 requests>=2.25
+numpy>=1.20
 
 [all]
 l3m-backend[dev,llm,mcp,repl]
@@ -8,6 +9,9 @@ l3m-backend[dev,llm,mcp,repl]
 pytest>=7.0
 pytest-cov>=4.0
 pytest-mock>=3.10
+
+[embeddings]
+sentence-transformers>=2.2.0
 
 [llm]
 llama-cpp-python>=0.2.0

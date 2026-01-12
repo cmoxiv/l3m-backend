@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, create_model
 
 from l3m_backend.core.helpers import _normalize_name
 from l3m_backend.mcp.exceptions import MCPConnectionError, MCPToolError
+from l3m_backend.mcp.logging import log_mcp_exception
 
 if TYPE_CHECKING:
     from mcp.types import Tool
@@ -133,17 +134,26 @@ class MCPRegistryAdapter:
                             )
                             return _extract_result(result)
                         except Exception as retry_e:
-                            # Clean error message on retry failure
-                            error_msg = str(retry_e).split('\n')[0]
-                            raise MCPToolError(f"MCP error: {error_msg}")
-                # Clean error message (no traceback)
-                error_msg = str(e).split('\n')[0]
-                raise MCPToolError(f"MCP error: {error_msg}")
+                            # Log full traceback, raise clean error (no chain)
+                            user_msg = log_mcp_exception(
+                                retry_e,
+                                context=f"MCP tool {server_name}.{tool_name} retry failed",
+                            )
+                            raise MCPToolError(user_msg) from None
+                # Log full traceback, raise clean error (no chain)
+                user_msg = log_mcp_exception(
+                    e,
+                    context=f"MCP tool {server_name}.{tool_name} failed",
+                )
+                raise MCPToolError(user_msg) from None
 
             except Exception as e:
-                # Clean error message for other exceptions
-                error_msg = str(e).split('\n')[0]
-                raise MCPToolError(f"MCP error: {error_msg}")
+                # Log full traceback, raise clean error (no chain)
+                user_msg = log_mcp_exception(
+                    e,
+                    context=f"MCP tool {server_name}.{tool_name} error",
+                )
+                raise MCPToolError(user_msg) from None
 
         return call_tool
 
