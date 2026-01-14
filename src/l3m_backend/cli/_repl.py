@@ -21,6 +21,7 @@ from l3m_backend.cli.commands import command_registry, load_user_commands
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, Completion, merge_completers
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
@@ -89,34 +90,8 @@ MODEL_DIR = Path.home() / ".l3m" / "models"
 # Load user commands from ~/.l3m/commands/
 load_user_commands()
 
-# Built-in commands for completion (user commands are added dynamically)
-COMMANDS = {
-    "/clear": "Clear conversation history",
-    "/tools": "List available tools",
-    "/system": "Show system prompt",
-    "/schema": "Show tool schema (OpenAI format)",
-    "/contract": "Show full system message with tools contract",
-    "/history": "Show conversation history",
-    "/undo": "Remove last user+assistant exchange",
-    "/pop": "Remove last n message pairs (usage: /pop [n])",
-    "/pop1": "Remove last single message",
-    "/push1": "Push a single message (usage: /push1 <content>)",
-    "/context": "Show context usage estimate",
-    "/model": "Show/switch model (usage: /model [name])",
-    "/config": "Show current configuration",
-    "/session": "Show current session info",
-    "/sessions": "List/search sessions (usage: /sessions [query])",
-    "/session-save": "Save session (usage: /session-save [title])",
-    "/session-load": "Load session as context (usage: /session-load <id>)",
-    "/session-title": "Generate/set session title",
-    "/session-tag": "Add tag to session (usage: /session-tag <tag>)",
-    "/debug": "Toggle debug mode on/off",
-    "/help": "Show this help message",
-    "/quit": "Exit (also /exit, /q)",
-}
-
-# Add user commands to completion
-COMMANDS.update(command_registry.get_completions())
+# Get all commands from registry for completion
+COMMANDS = command_registry.get_completions()
 
 
 class CommandCompleter(Completer):
@@ -338,6 +313,138 @@ class PromptCompleter(Completer):
         return prompts
 
 
+class ConfigCompleter(Completer):
+    """Completer for /config set and /config del commands."""
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only complete /config commands
+        if not text.startswith("/config"):
+            return
+
+        # Just "/config" without space - let CommandCompleter handle it
+        if text == "/config":
+            return
+
+        parts = text.split()
+
+        # "/config " - suggest subcommands
+        if len(parts) == 1 and text.endswith(" "):
+            for sub in ["set", "del"]:
+                yield Completion(
+                    sub,
+                    start_position=0,
+                    display_meta="Set config value" if sub == "set" else "Delete config value",
+                )
+            return
+
+        # "/config s" - complete partial subcommand
+        if len(parts) == 2 and not text.endswith(" "):
+            subcommand = parts[1]
+            for sub in ["set", "del"]:
+                if sub.startswith(subcommand):
+                    yield Completion(
+                        sub,
+                        start_position=-len(subcommand),
+                        display_meta="Set config value" if sub == "set" else "Delete config value",
+                    )
+            return
+
+        subcommand = parts[1] if len(parts) >= 2 else ""
+
+        # "/config set " or "/config del " - suggest config keys
+        if subcommand in ("set", "del") and len(parts) == 2 and text.endswith(" "):
+            from l3m_backend.config.config import Config
+            for field_name, field_info in Config.model_fields.items():
+                desc = field_info.description or ""
+                if len(desc) > 40:
+                    desc = desc[:37] + "..."
+                yield Completion(
+                    field_name,
+                    start_position=0,
+                    display_meta=desc,
+                )
+            return
+
+        # "/config set c" - complete partial key
+        if subcommand in ("set", "del") and len(parts) == 3 and not text.endswith(" "):
+            from l3m_backend.config.config import Config
+            partial_key = parts[2]
+            for field_name, field_info in Config.model_fields.items():
+                if field_name.startswith(partial_key):
+                    desc = field_info.description or ""
+                    if len(desc) > 40:
+                        desc = desc[:37] + "..."
+                    yield Completion(
+                        field_name,
+                        start_position=-len(partial_key),
+                        display_meta=desc,
+                    )
+
+
+class CommandNameCompleter(Completer):
+    """Completer for /command edit and /command new commands."""
+
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+
+        # Only complete /command commands
+        if not text.startswith("/command"):
+            return
+
+        # Just "/command" without space - let CommandCompleter handle it
+        if text == "/command":
+            return
+
+        parts = text.split()
+
+        # "/command " - suggest subcommands
+        if len(parts) == 1 and text.endswith(" "):
+            for sub, desc in [("ls", "List commands"), ("edit", "Edit command"), ("new", "Create command")]:
+                yield Completion(sub, start_position=0, display_meta=desc)
+            return
+
+        # "/command e" - complete partial subcommand
+        if len(parts) == 2 and not text.endswith(" "):
+            subcommand = parts[1]
+            for sub, desc in [("ls", "List commands"), ("edit", "Edit command"), ("new", "Create command")]:
+                if sub.startswith(subcommand):
+                    yield Completion(sub, start_position=-len(subcommand), display_meta=desc)
+            return
+
+        subcommand = parts[1] if len(parts) >= 2 else ""
+
+        # "/command edit " - suggest command names
+        if subcommand == "edit" and len(parts) == 2 and text.endswith(" "):
+            from l3m_backend.cli.commands.loader import USER_COMMANDS_DIR
+            if USER_COMMANDS_DIR.exists():
+                for cmd_dir in sorted(USER_COMMANDS_DIR.iterdir()):
+                    if cmd_dir.is_dir() and not cmd_dir.name.startswith((".", "_")):
+                        is_symlink = cmd_dir.is_symlink()
+                        yield Completion(
+                            cmd_dir.name,
+                            start_position=0,
+                            display_meta="builtin" if is_symlink else "custom",
+                        )
+            return
+
+        # "/command edit c" - complete partial command name
+        if subcommand == "edit" and len(parts) == 3 and not text.endswith(" "):
+            from l3m_backend.cli.commands.loader import USER_COMMANDS_DIR
+            partial_name = parts[2]
+            if USER_COMMANDS_DIR.exists():
+                for cmd_dir in sorted(USER_COMMANDS_DIR.iterdir()):
+                    if cmd_dir.is_dir() and not cmd_dir.name.startswith((".", "_")):
+                        if cmd_dir.name.startswith(partial_name):
+                            is_symlink = cmd_dir.is_symlink()
+                            yield Completion(
+                                cmd_dir.name,
+                                start_position=-len(partial_name),
+                                display_meta="builtin" if is_symlink else "custom",
+                            )
+
+
 def _expand_mcp_prompt_inline(engine: "ChatEngine", prompt_name: str) -> str | None:
     """Expand an MCP prompt by name for inline expansion (space key).
 
@@ -551,14 +658,15 @@ def _extract_resource_content(result) -> str:
 
 
 def _add_resource_to_history(engine: "ChatEngine", uri: str, content: str) -> None:
-    """Add fetched resource to chat history and display it."""
-    import json
+    """Add fetched resource to chat history and display it.
 
+    Assistant responses are stored as plain text to match the contract
+    which says final responses should be plain text (enables streaming).
+    """
     user_msg = f"@{uri}"
-    assistant_msg = json.dumps({"type": "final", "content": content})
 
     engine.history.append({"role": "user", "content": user_msg})
-    engine.history.append({"role": "assistant", "content": assistant_msg})
+    engine.history.append({"role": "assistant", "content": content})
 
     # Display the resource content
     print(f"{GREY}[{uri}]{RESET}")
@@ -693,7 +801,36 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
         ModelCompleter(),
         ResourceCompleter(engine),
         PromptCompleter(engine),
+        ConfigCompleter(),
+        CommandNameCompleter(),
     ])
+
+    # Bottom toolbar showing context stats
+    def get_bottom_toolbar():
+        """Generate bottom toolbar with context stats."""
+        try:
+            n_ctx = engine.llm.n_ctx()
+            # Count tokens for each component
+            system_tokens = engine._count_tokens([engine._build_system_message()])
+            priming_tokens = engine._count_tokens(engine.priming_messages) if engine.priming_messages else 0
+            history_tokens = engine._count_tokens(engine.history) if engine.history else 0
+            total_tokens = system_tokens + priming_tokens + history_tokens
+            pct = (total_tokens / n_ctx) * 100 if n_ctx > 0 else 0
+
+            # Color based on usage
+            if pct > 80:
+                color = "ansired"
+            elif pct > 60:
+                color = "ansiyellow"
+            else:
+                color = "ansigreen"
+
+            return HTML(
+                f' <b>Context:</b> <{color}>{total_tokens:,}</{color}>/{n_ctx:,} ({pct:.0f}%) '
+                f'| <b>History:</b> {len(engine.history)} msgs'
+            )
+        except Exception:
+            return ""
 
     # Create prompt session
     session: PromptSession = PromptSession(
@@ -704,15 +841,23 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
         key_bindings=bindings,
         complete_while_typing=True,
         enable_history_search=True,
+        bottom_toolbar=get_bottom_toolbar,
     )
 
     # Initialize magic commands
     magic = MagicCommands(engine, session_mgr)
 
+    # Get model info for banner
+    model_name = Path(engine._model_path).stem if hasattr(engine, '_model_path') else "unknown"
+    n_ctx = engine.llm.n_ctx() if hasattr(engine, 'llm') else 0
+
     # Print welcome banner
     print("=" * 50)
     print("LlamaCpp Chat REPL with Tool Calling")
     print("=" * 50)
+    print(f"Model: {model_name}")
+    print(f"Context: {n_ctx:,} tokens")
+    print("-" * 50)
     print("Tab: completion | Ctrl+R: search history")
     print("Ctrl+C: cancel | Ctrl+D twice: exit")
     print("/help for commands")
@@ -868,349 +1013,19 @@ def repl(engine: ChatEngine, session_mgr: Optional["SessionManager"] = None):
 
         # Handle commands
         if user_input.startswith("/"):
-            cmd = user_input.lower()
-            if cmd in ("/quit", "/exit", "/q"):
-                # Generate summary before exit
-                if session_mgr and session_mgr.session and session_mgr.session.transcript:
-                    last_end = session_mgr.get_last_summary_end_idx()
-                    if len(session_mgr.session.transcript) > last_end:
-                        feedback("Generating session summary...")
-                        session_mgr.generate_summary(engine, last_end)
-
-                # Save and update symlink
-                if session_mgr and session_mgr.session:
-                    cwd = Path(session_mgr.session.metadata.working_directory)
-                    session_mgr.save(cwd)
-                    session_mgr.create_symlink(cwd)
-
-                print("Goodbye!")
-                break
-            elif cmd == "/clear":
-                engine.clear()
-                # Also clear session history, transcript, and summaries
-                if session_mgr and session_mgr.session:
-                    session_mgr.session.history = []
-                    session_mgr.session.transcript = []
-                    session_mgr.session.metadata.summaries = []
-                    cwd = Path(session_mgr.session.metadata.working_directory)
-                    session_mgr.save(cwd)
-                    print("Conversation, transcript, and summaries cleared.\n")
-                else:
-                    print("Conversation cleared.\n")
-                continue
-            elif cmd == "/tools":
-                print_tools(engine.registry)
-                continue
-            elif cmd == "/system":
-                print(f"\n{engine.system_prompt}\n")
-                continue
-            elif cmd == "/schema":
-                print(f"\n{json.dumps(engine.tools, indent=2)}\n")
-                continue
-            elif cmd == "/contract":
-                print(f"\n{engine._build_system_message()['content']}\n")
-                continue
-            elif cmd == "/history":
-                print()
-                for i, msg in enumerate(engine.messages):
-                    role = msg.get("role", "?")
-                    content = msg.get("content", "")
-                    if role == "system":
-                        print(f"[{i}] system: (system prompt)")
-                    elif role == "tool":
-                        print(f"[{i}] tool [{msg.get('tool_call_id', '?')}]: {content}")
-                    elif msg.get("tool_calls"):
-                        calls = ", ".join(tc["function"]["name"] for tc in msg["tool_calls"])
-                        print(f"[{i}] {role}: [calls: {calls}]")
-                    else:
-                        preview = (content[:60] + "...") if content and len(content) > 60 else content
-                        print(f"[{i}] {role}: {preview}")
-                print()
-                continue
-            elif cmd == "/help":
-                print_help()
-                continue
-            elif cmd == "/undo":
-                if len(engine.history) >= 2:
-                    engine.history.pop()  # assistant
-                    engine.history.pop()  # user
-                    if session_mgr:
-                        session_mgr.sync_from_engine(engine.history)
-                    print("Removed last exchange.\n")
-                elif engine.history:
-                    engine.history.pop()
-                    if session_mgr:
-                        session_mgr.sync_from_engine(engine.history)
-                    print("Removed last message.\n")
-                else:
-                    print("History is empty.\n")
-                continue
-            elif cmd == "/pop1":
-                if engine.history:
-                    msg = engine.history.pop()
-                    role = msg.get("role", "?")
-                    if session_mgr:
-                        session_mgr.sync_from_engine(engine.history)
-                    print(f"Removed 1 {role} message.\n")
-                else:
-                    print("History is empty.\n")
-                continue
-            elif cmd.startswith("/push1"):
-                # Parse: /push1 <content>
-                parts = user_input.split(maxsplit=1)
-                if len(parts) < 2:
-                    print("Usage: /push1 <content>\n")
-                    continue
-                content = parts[1]
-                # Infer role from last message
-                if engine.history:
-                    last_role = engine.history[-1].get("role", "user")
-                    role = "assistant" if last_role == "user" else "user"
-                else:
-                    role = "user"
-                engine.history.append({"role": role, "content": content})
-                if session_mgr:
-                    session_mgr.sync_from_engine(engine.history)
-                print(f"Pushed 1 {role} message.\n")
-                continue
-            elif cmd.startswith("/pop"):
-                # Parse optional argument: /pop or /pop 3
-                parts = user_input.split()
-                n = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
-                removed_pairs = 0
-                for _ in range(n):
-                    if len(engine.history) >= 2:
-                        engine.history.pop()  # assistant
-                        engine.history.pop()  # user
-                        removed_pairs += 1
-                    else:
-                        break  # Can't remove more pairs
-                if removed_pairs > 0:
-                    if session_mgr:
-                        session_mgr.sync_from_engine(engine.history)
-                    print(f"Removed {removed_pairs} message pair(s).\n")
-                else:
-                    print("History is empty or incomplete pair.\n")
-                continue
-            elif cmd == "/context":
-                # Use accurate token counting if available
-                messages = engine._build_messages()
+            # Dispatch to command registry
+            entry, args = command_registry.match(user_input)
+            if entry:
                 try:
-                    total_tokens = engine._count_tokens(messages)
-                    n_ctx = engine.llm.n_ctx()
-                    if not isinstance(n_ctx, int):
-                        n_ctx = 32768
-                except (AttributeError, TypeError):
-                    # Fallback: estimate 4 chars per token
-                    total_chars = sum(len(m.get("content", "")) for m in messages)
-                    total_tokens = total_chars // 4
-                    n_ctx = 32768
-                pct = (total_tokens / n_ctx) * 100
-                print(f"\nContext: {total_tokens:,} / {n_ctx:,} tokens ({pct:.1f}%)")
-                print(f"History: {len(engine.history)} messages\n")
+                    result = entry.handler(engine, session_mgr, args)
+                    if result is True:  # Signal to exit
+                        break
+                except Exception as e:
+                    print(f"Command error: {e}\n")
                 continue
-            elif cmd.startswith("/model"):
-                from l3m_backend.utils.gpu import get_gpu_info
-
-                parts = user_input.split(maxsplit=1)
-                if len(parts) == 1:
-                    # No argument - show current model info
-                    llm = engine.llm
-                    model_path = getattr(llm, "model_path", "unknown")
-                    try:
-                        n_ctx = llm.n_ctx()
-                    except (AttributeError, TypeError):
-                        n_ctx = "?"
-                    gpu_info = get_gpu_info(engine)
-                    layers = gpu_info["gpu_layers"]
-                    layers_str = "all" if layers == -1 else str(layers)
-
-                    print(f"\nModel: {model_path}")
-                    print(f"Context: {n_ctx}")
-                    print(f"Backend: {gpu_info['backend']}")
-                    print(f"GPU layers: {layers_str}")
-                    print(f"\nAvailable models in {MODEL_DIR}:")
-                    if MODEL_DIR.exists():
-                        for m in sorted(MODEL_DIR.glob("*.gguf")):
-                            size_mb = m.stat().st_size / (1024 * 1024)
-                            print(f"  {m.name:<50} {size_mb:>8.1f} MB")
-                    print("\nUsage: /model <name> to switch models\n")
-                else:
-                    # Switch to specified model
-                    model_name = parts[1].strip()
-                    new_model_path = MODEL_DIR / model_name
-                    if not new_model_path.exists():
-                        # Try as full path
-                        new_model_path = Path(model_name)
-                        if not new_model_path.exists():
-                            print(f"Model not found: {model_name}")
-                            print(f"Looked in: {MODEL_DIR / model_name}")
-                            continue
-
-                    print(f"Switching to {new_model_path.name}...")
-                    try:
-                        engine.switch_model(str(new_model_path))
-                        gpu_info = get_gpu_info(engine)
-                        print(f"Switched to: {new_model_path.name}")
-                        print(f"Context: {engine.llm.n_ctx()}")
-                        print(f"Backend: {gpu_info['backend']}\n")
-                    except Exception as e:
-                        print(f"Failed to switch model: {e}\n")
-                continue
-            elif cmd == "/config":
-                from l3m_backend.config import get_config_manager
-                cfg_mgr = get_config_manager()
-                settings = cfg_mgr.list_settings()
-                print(f"\nConfig file: {cfg_mgr.CONFIG_FILE}")
-                if settings:
-                    for key, value in settings.items():
-                        print(f"  {key}: {value}")
-                else:
-                    print("  (no custom settings)")
-                print()
-                continue
-            elif cmd == "/debug":
-                engine.debug = not engine.debug
-                status = "enabled" if engine.debug else "disabled"
-                print(f"Debug mode {status}.\n")
-                continue
-            elif cmd == "/session":
-                if session_mgr and session_mgr.session:
-                    s = session_mgr.session
-                    print(f"\nSession ID: {s.metadata.id}")
-                    print(f"Title: {s.metadata.title or '(untitled)'}")
-                    print(f"Tag: {s.metadata.tag or '(none)'}")
-                    print(f"Created: {s.metadata.created_at[:19]}")
-                    print(f"Updated: {s.metadata.updated_at[:19]}")
-                    print(f"Initial: {s.metadata.initial_datetime}")
-                    print(f"Last save: {s.metadata.last_save_datetime or '(not saved)'}")
-                    print(f"Working dir: {s.metadata.working_directory}")
-                    print(f"Incognito: {s.metadata.is_incognito}")
-                    print(f"History: {len(s.history)} messages")
-                    print(f"Transcript: {len(s.transcript)} messages")
-                    print(f"Summaries: {len(s.metadata.summaries)}\n")
-                else:
-                    print("No active session.\n")
-                continue
-            elif cmd.startswith("/sessions"):
-                if session_mgr:
-                    parts = user_input.split(maxsplit=1)
-                    query = parts[1] if len(parts) > 1 else None
-                    if query:
-                        sessions = session_mgr.search(query)
-                        if not sessions:
-                            print(f"No sessions matching '{query}'\n")
-                            continue
-                        print(f"\nSessions matching '{query}':")
-                    else:
-                        sessions = session_mgr.list_sessions()
-                        if not sessions:
-                            print("No sessions found.\n")
-                            continue
-                        print("\nAvailable sessions:")
-                    for s in sessions[:10]:
-                        title = s.title or "(untitled)"
-                        print(f"  {s.id[:8]}  {title[:40]}")
-                    if len(sessions) > 10:
-                        print(f"  ... and {len(sessions) - 10} more")
-                    print()
-                else:
-                    print("Session management not available.\n")
-                continue
-            elif cmd.startswith("/session-save"):
-                if not session_mgr or not session_mgr.session:
-                    print("No active session.\n")
-                    continue
-                s = session_mgr.session
-                # Parse optional title argument
-                parts = user_input.split(maxsplit=1)
-                if len(parts) > 1:
-                    s.metadata.title = parts[1]
-                    feedback(f"Set session title: {s.metadata.title}")
-                elif not s.metadata.title and s.transcript:
-                    feedback("Generating title...")
-                    title = session_mgr.generate_title(engine)
-                    if title:
-                        feedback(f"Generated title: {title}")
-                    else:
-                        feedback("Could not generate title.")
-                path = session_mgr.save()
-                feedback(f"Session saved: {path}\n")
-                continue
-            elif cmd.startswith("/session-load"):
-                if not session_mgr:
-                    print("Session management not available.\n")
-                    continue
-                parts = user_input.split(maxsplit=1)
-                if len(parts) < 2:
-                    print("Usage: /session-load <session_id>")
-                    print("Use /sessions to list available sessions.\n")
-                    continue
-                session_id = parts[1].strip()
-                print(f"Loading session {session_id[:8]}...")
-                loaded = session_mgr.load_as_context([session_id], engine)
-                if loaded:
-                    print(f"Loaded: {', '.join(loaded)}\n")
-                else:
-                    print(f"Could not load session: {session_id}\n")
-                continue
-            elif cmd.startswith("/session-title"):
-                if not session_mgr or not session_mgr.session:
-                    print("No active session.\n")
-                    continue
-                s = session_mgr.session
-                # Parse optional title argument
-                parts = user_input.split(maxsplit=1)
-                if len(parts) > 1:
-                    s.metadata.title = parts[1]
-                    feedback(f"Title set: {s.metadata.title}")
-                    session_mgr.save()
-                elif s.transcript:
-                    feedback("Generating title...")
-                    title = session_mgr.generate_title(engine)
-                    if title:
-                        feedback(f"Generated title: {title}")
-                        session_mgr.save()
-                    else:
-                        feedback("Could not generate title.")
-                else:
-                    print("No conversation yet to generate title from.")
-                print()
-                continue
-            elif cmd.startswith("/session-tag"):
-                if not session_mgr or not session_mgr.session:
-                    print("No active session.\n")
-                    continue
-                s = session_mgr.session
-                parts = user_input.split(maxsplit=1)
-                if len(parts) < 2:
-                    print(f"Usage: /session-tag <tag>")
-                    print(f"Current tag: {s.metadata.tag or '(none)'}\n")
-                    continue
-                tag = parts[1].strip().lower()
-                old_tag = s.metadata.tag
-                s.metadata.tag = tag
-                cwd = Path(s.metadata.working_directory)
-                session_mgr.save(cwd)
-                if old_tag:
-                    feedback(f"Changed tag: {old_tag} -> {tag}\n")
-                else:
-                    feedback(f"Set tag: {tag}\n")
-                continue
-            else:
-                # Try user-defined commands from ~/.l3m/commands/
-                entry, args = command_registry.match(user_input)
-                if entry:
-                    try:
-                        result = entry.handler(engine, session_mgr, args)
-                        if result is True:  # Signal to exit
-                            break
-                    except Exception as e:
-                        print(f"Command error: {e}\n")
-                    continue
-                print(f"Unknown command: {user_input}")
-                print("Type /help for available commands.\n")
-                continue
+            print(f"Unknown command: {user_input}")
+            print("Type /help for available commands.\n")
+            continue
 
         # Get response
         try:

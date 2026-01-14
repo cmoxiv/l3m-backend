@@ -7,10 +7,25 @@ import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, AsyncIterator
 
+import httpx
+
 from l3m_backend.mcp.exceptions import MCPTransportError
 from l3m_backend.mcp.logging import log_mcp_exception
 
 logger = logging.getLogger(__name__)
+
+
+def _make_httpx_factory(verify: bool):
+    """Create an httpx client factory with custom SSL verification setting."""
+    def factory(headers=None, timeout=None, auth=None):
+        return httpx.AsyncClient(
+            headers=headers,
+            timeout=timeout or httpx.Timeout(30.0, read=300.0),
+            auth=auth,
+            follow_redirects=True,
+            verify=verify,
+        )
+    return factory
 
 # Retry configuration
 SSE_MAX_RETRIES = 3

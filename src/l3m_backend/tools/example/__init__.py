@@ -11,7 +11,7 @@ to the LLM, and @tool_output to format the response.
 from typing import Any
 
 from l3m_backend.core import tool_output
-from l3m_backend.tools import registry
+from l3m_backend.tools._registry import registry
 
 
 @registry.register(

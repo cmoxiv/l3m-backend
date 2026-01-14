@@ -1,14 +1,20 @@
-"""Example MCP server running over HTTP/SSE for testing l3m's MCP client.
+"""Example MCP server running over HTTPS/SSE for testing l3m's MCP client.
 
-This server provides sample tools, resources, and prompts over HTTP.
+This server provides sample tools, resources, and prompts over HTTPS
+using self-signed certificates for development/testing.
 
 Run with:
     python -m examples.mcp_server_http
 
 Connect from l3m-chat:
-    /mcp connect remote http://localhost:8080/sse
+    /mcp connect remote https://localhost:8443/sse
+
+Note: Browser/client will warn about self-signed certificate - this is expected.
 """
 from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -16,6 +22,85 @@ except ImportError:
     raise ImportError(
         "MCP package not installed. Install with: pip install 'mcp[cli]'"
     )
+
+try:
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+except ImportError:
+    raise ImportError(
+        "cryptography package not installed. Install with: pip install cryptography"
+    )
+
+
+def generate_self_signed_cert(cert_dir: Path) -> tuple[Path, Path]:
+    """Generate self-signed certificate for HTTPS if not already present.
+
+    Args:
+        cert_dir: Directory to store certificate files.
+
+    Returns:
+        Tuple of (cert_path, key_path).
+    """
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = cert_dir / "server.crt"
+    key_path = cert_dir / "server.key"
+
+    # Return existing certs if valid
+    if cert_path.exists() and key_path.exists():
+        # Check if cert is still valid (not expired)
+        try:
+            cert_data = cert_path.read_bytes()
+            cert = x509.load_pem_x509_certificate(cert_data)
+            if cert.not_valid_after_utc > datetime.now(timezone.utc):
+                return cert_path, key_path
+        except Exception:
+            pass  # Regenerate if any error
+
+    # Generate new key
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+    # Generate certificate
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+        x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Development"),
+        x509.NameAttribute(NameOID.LOCALITY_NAME, "Local"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "l3m-backend"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+    ])
+
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
+        .add_extension(
+            x509.SubjectAlternativeName([
+                x509.DNSName("localhost"),
+                x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+            ]),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+
+    # Write key
+    key_path.write_bytes(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
+
+    # Write certificate
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+
+    return cert_path, key_path
 
 # Create the MCP server
 mcp = FastMCP("remote")

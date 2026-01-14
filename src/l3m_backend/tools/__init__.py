@@ -1,77 +1,31 @@
 """
-Built-in tools and shared registry for the l3m_backend package.
+Tools and shared registry for the l3m_backend package.
 
-Importing this module registers all built-in tools with the shared registry.
+Tools are loaded ONLY from ~/.l3m/tools/. Use `l3m-init` to create
+symlinks to package builtins. Users can:
+- Remove symlinks to disable built-in tools
+- Replace symlinks with custom implementations
 """
 
 # Import registry first
 from l3m_backend.tools._registry import registry
 
-# Import all tool modules to register them with the registry
-from l3m_backend.tools.calculator import calculate
-from l3m_backend.tools.development import (
-    http_request,
-    read_file,
-    run_python,
-    shell_cmd,
-    write_file,
+# Load tools from ~/.l3m/tools/ (symlinks to builtins or custom)
+from l3m_backend.tools.loader import (
+    USER_TOOLS_DIR,
+    PACKAGE_TOOLS_DIR,
+    load_all_tools,
+    load_user_tools,  # Backwards compatibility
 )
-from l3m_backend.tools.currency import currency_convert
-from l3m_backend.tools.dictionary import define_word
-from l3m_backend.tools.unit_convert import unit_convert
-from l3m_backend.tools.web_search import web_search
-# from l3m_backend.tools.wikipedia import wikipedia  # Disabled - conflicts with web_search
-from l3m_backend.tools.productivity import note, reminder, timer, todo
-from l3m_backend.tools.time import get_time
-from l3m_backend.tools.utilities import (
-    base64_encode,
-    hash_text,
-    json_format,
-    random_number,
-    uuid_generate,
-)
-from l3m_backend.tools.weather import get_weather
-from l3m_backend.tools.planning import plan
 
-# Load user tools from ~/.l3m/tools/ after built-in tools
-from l3m_backend.tools.loader import USER_TOOLS_DIR, load_user_tools
-
-load_user_tools()
+load_all_tools()
 
 __all__ = [
     # Registry
     "registry",
-    # User tools loader
-    "load_user_tools",
+    # Tools loader
+    "load_all_tools",
+    "load_user_tools",  # Backwards compatibility
     "USER_TOOLS_DIR",
-    # Weather
-    "get_weather",
-    # Time
-    "get_time",
-    # Calculator
-    "calculate",
-    # Information
-    "define_word",
-    "unit_convert",
-    "currency_convert",
-    "web_search",
-    # Productivity
-    "note",
-    "todo",
-    "reminder",
-    "timer",
-    # Development
-    "run_python",
-    "read_file",
-    "write_file",
-    "shell_cmd",
-    "http_request",
-    # Utilities
-    "random_number",
-    "uuid_generate",
-    "hash_text",
-    "base64_encode",
-    "json_format",
-    # Planning
-    "plan",
+    "PACKAGE_TOOLS_DIR",
 ]

@@ -7,7 +7,6 @@ Magic commands use the % prefix:
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Optional
 
 from l3m_backend.cli.magic import magic_registry, load_all_magic
@@ -19,18 +18,8 @@ if TYPE_CHECKING:
 # Load all magic commands (user + builtins)
 load_all_magic()
 
-# Magic commands for completion
-MAGIC_COMMANDS = {
-    "%!": "Run shell command (adds to history)",
-    "%tool": "Invoke tool (adds to history)",
-    "%load": "Load file content (adds to history)",
-    "%time": "Report current time (adds to history)",
-    "%save": "Save conversation (adds to history)",
-    "%edit-response": "Edit last assistant response in $VISUAL",
-}
-
-# Add loaded magic commands to completion
-MAGIC_COMMANDS.update(magic_registry.get_completions())
+# Magic commands for completion - get from registry
+MAGIC_COMMANDS = magic_registry.get_completions()
 
 
 class MagicCommands:
@@ -47,16 +36,12 @@ class MagicCommands:
     def _add_to_history(self, user_msg: str, assistant_msg: str) -> None:
         """Add a user/assistant exchange to history.
 
-        The assistant message is wrapped in a final JSON structure in engine.history
-        for consistency with the tool-calling contract. The session transcript
-        stores the plain text for display purposes.
+        Assistant responses are stored as plain text to match the contract
+        which says final responses should be plain text (enables streaming).
         """
-        # Wrap assistant response in final JSON format for LLM context
-        final_response = json.dumps({"type": "final", "content": assistant_msg})
-
-        # Add to engine history (JSON wrapped for LLM)
+        # Add to engine history (plain text for assistant)
         self.engine.history.append({"role": "user", "content": user_msg})
-        self.engine.history.append({"role": "assistant", "content": final_response})
+        self.engine.history.append({"role": "assistant", "content": assistant_msg})
 
         # Sync with session if available
         if self.session_mgr:

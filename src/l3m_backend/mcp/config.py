@@ -20,6 +20,7 @@ class MCPServerConfig(BaseModel):
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
     url: str | None = Field(default=None, description="Server URL (for http/sse)")
     headers: dict[str, str] = Field(default_factory=dict, description="HTTP headers")
+    ssl_verify: bool = Field(default=True, description="Verify SSL certificates (set False for self-signed)")
     auto_connect: bool = Field(default=False, description="Connect automatically on startup")
     description: str = Field(default="", description="Human-readable description")
 

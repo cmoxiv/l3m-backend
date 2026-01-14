@@ -168,8 +168,7 @@ OUTPUT CONTRACT (STRICT):
 - If you decide to call a tool, output ONLY one JSON object (no extra text):
   {{"type": "tool_call", "name": "<tool name or alias>", "arguments": {{...}}}}
 
-- Otherwise output ONLY:
-  {{"type": "final", "content": "..."}}
+- Otherwise respond in plain text (no JSON)
 
 RULES:
 - Use ONLY tool names/aliases from TOOL_REGISTRY_JSON.

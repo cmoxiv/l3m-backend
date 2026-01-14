@@ -108,3 +108,19 @@ This session focused on UX improvements and implementing a dynamic priming syste
 
 ### Summary
 This session focused on improving the web search tool to provide actual content rather than just titles, and adding infrastructure for tools to invoke the LLM for processing (like summarization) without polluting conversation history. The `ignore_history` mode enables tools to leverage the loaded model for internal tasks.
+
+## Session Wrap-up
+
+**Date:** 2026-01-11
+
+### What Got Done
+- Fixed MCP tool registration issues:
+  - Params model issue: MCP tools with `**kwargs` generated empty schemas, dropping arguments on validation
+  - Name normalization issue: Tools with dots (e.g., `mcp.test.score`) weren't matching normalized lookups
+- Created MCP HTTP server example (`examples/mcp_server_http/`)
+- Added man page documentation for l3m-chat (`docs/man/l3m-chat.1`)
+- Built frontend test suite (`tests/test_frontend.py`)
+- Large codebase changes across src/, tests/, docs/, scripts/, and examples/
+
+### Summary
+This session focused on fixing MCP tool integration issues and improving documentation. Key achievements include resolving schema generation problems for MCP tools with dynamic arguments, fixing tool name lookup normalization, and adding comprehensive documentation including man pages and test coverage.

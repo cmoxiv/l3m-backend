@@ -1,5 +1,10 @@
 """
-User tools loader - discovers and loads tools from ~/.l3m/tools/
+Tools loader - discovers and loads tools from ~/.l3m/tools/
+
+Tools are loaded ONLY from ~/.l3m/tools/. Use `l3m-init` to create
+symlinks to package builtins. Users can:
+- Remove symlinks to disable built-in tools
+- Replace symlinks with custom implementations
 
 Each tool must be a module (directory with __init__.py), matching the
 pattern used by commands and magic.
@@ -7,7 +12,7 @@ pattern used by commands and magic.
 The tool registers itself using the same decorators as built-in tools:
 
     # ~/.l3m/tools/my_tool/__init__.py
-    from l3m_backend.tools import registry
+    from l3m_backend.tools._registry import registry
     from l3m_backend.core import tool_output
 
     @registry.register(aliases=["mt"])
@@ -32,15 +37,12 @@ USER_TOOLS_DIR = Path.home() / ".l3m" / "tools"
 PACKAGE_TOOLS_DIR = Path(__file__).parent
 
 
-def discover_user_tools(tools_dir: Path | None = None) -> list[Path]:
+def discover_tools(tools_dir: Path | None = None) -> list[Path]:
     """
-    Discover user tool modules.
+    Discover tool modules in the given directory.
 
     Each tool must be a directory with __init__.py (module), matching the
     pattern used by commands and magic.
-
-    Symlinks pointing to package builtins are skipped since those are already
-    loaded via direct import.
 
     Args:
         tools_dir: Directory to search (default: ~/.l3m/tools)
@@ -54,7 +56,7 @@ def discover_user_tools(tools_dir: Path | None = None) -> list[Path]:
         return []
 
     if not tools_dir.is_dir():
-        logger.warning(f"User tools path is not a directory: {tools_dir}")
+        logger.warning(f"Tools path is not a directory: {tools_dir}")
         return []
 
     tool_paths = []
@@ -62,13 +64,6 @@ def discover_user_tools(tools_dir: Path | None = None) -> list[Path]:
         # Skip non-directories, hidden, and private
         if not item.is_dir() or item.name.startswith((".", "_")):
             continue
-
-        # Skip symlinks pointing to package builtins
-        if item.is_symlink():
-            target = item.resolve()
-            if str(target).startswith(str(PACKAGE_TOOLS_DIR)):
-                logger.debug(f"Skipping {item.name}: symlink to package builtin")
-                continue
 
         init_file = item / "__init__.py"
         if init_file.exists():
@@ -79,9 +74,13 @@ def discover_user_tools(tools_dir: Path | None = None) -> list[Path]:
     return tool_paths
 
 
-def load_user_tool(tool_path: Path, prefix: str = "l3m_user_tools") -> tuple[str, bool, str]:
+# Backwards compatibility alias
+discover_user_tools = discover_tools
+
+
+def load_tool(tool_path: Path, prefix: str = "l3m_tool") -> tuple[str, bool, str]:
     """
-    Load a single user tool module.
+    Load a single tool module.
 
     Args:
         tool_path: Path to the tool's __init__.py file.
@@ -112,12 +111,18 @@ def load_user_tool(tool_path: Path, prefix: str = "l3m_user_tools") -> tuple[str
         return (tool_name, False, f"Error: {e}")
 
 
-def load_user_tools(tools_dir: Path | None = None, verbose: bool = False) -> int:
-    """
-    Load all user tools from the tools directory.
+# Backwards compatibility alias
+load_user_tool = load_tool
 
-    Tools are loaded after built-in tools, so they can override or extend
-    existing functionality if needed.
+
+def load_all_tools(tools_dir: Path | None = None, verbose: bool = False) -> int:
+    """
+    Load all tools from the tools directory.
+
+    Tools are loaded ONLY from ~/.l3m/tools/. Use `l3m-init` to create
+    symlinks to package builtins. Users can:
+    - Remove symlinks to disable built-in tools
+    - Replace symlinks with custom implementations
 
     Args:
         tools_dir: Directory to load from (default: ~/.l3m/tools)
@@ -126,20 +131,25 @@ def load_user_tools(tools_dir: Path | None = None, verbose: bool = False) -> int
     Returns:
         Number of successfully loaded tools.
     """
-    tool_paths = discover_user_tools(tools_dir)
+    tools_dir = tools_dir or USER_TOOLS_DIR
+    tool_paths = discover_tools(tools_dir)
 
     if not tool_paths:
         return 0
 
     loaded = 0
     for tool_path in tool_paths:
-        tool_name, success, error = load_user_tool(tool_path)
+        tool_name, success, error = load_tool(tool_path)
 
         if success:
             loaded += 1
             if verbose:
-                logger.info(f"Loaded user tool: {tool_name}")
+                logger.info(f"Loaded tool: {tool_name}")
         else:
-            logger.warning(f"Failed to load user tool '{tool_name}': {error}")
+            logger.warning(f"Failed to load tool '{tool_name}': {error}")
 
     return loaded
+
+
+# Backwards compatibility alias
+load_user_tools = load_all_tools
